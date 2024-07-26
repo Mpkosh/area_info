@@ -13,7 +13,7 @@ def index():
     return 'hey'
     
 @bp_main.route('/docs')
-def index():
+def docs():
     return render_template('docs.html')
     
 # по умолчанию только GET 
