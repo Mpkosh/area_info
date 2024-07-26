@@ -9,6 +9,7 @@ from flask import request, send_file
 import pandas as pd
 import geopandas as gpd
 
+import numpy as np
 import requests
 from shapely.geometry import Polygon
 from app_package import db
@@ -17,6 +18,7 @@ from app_package.models import Region
 #from app.api.errors import bad_request
 from app_package.src import PreproDF, PopulationInfo, AreaOnMapFile
 from app_package.translate import translate
+from flask_cors import CORS, cross_origin
 
 
 file_dir = 'app_package/src/population_data/'
@@ -200,6 +202,56 @@ def density_map():
                                            area_name=area_name)
     
     return send_file(bytes_obj, download_name='map_plot.png',mimetype='image/png')
+
+
+@bp_api.route('/regions/area_needs', methods=['GET'])
+@cross_origin()
+def area_needs():
+    territory_id = request.args.get('territory_id', type = int)
+    given_year = request.args.get('given_year', type = int)
+    
+    url = f'https://socdemo.lok-tech.com/indicators/2/{territory_id}/detailed'
+    r = requests.get(url, params={'year':given_year})
+    all_popul = r.json()
+    df = pd.DataFrame(all_popul[0]['data'])
+    df['группа'] = df.iloc[:,:2].apply(func, 1)
+    df = df.set_index('группа').iloc[:,2:]
+    df.columns = ['Мужчины', 'Женщины']
+    # выбираем нужный интервал возрастов
+    n_age_groups = 5
+    #age_groups_df = PopulationInfo.age_groups(df, n_in_age_group=n_age_groups)
+    
+    #_______________________________
+    
+    #okato_id = request.args.get('okato_id', type = str)
+    #given_year = request.args.get('given_year', type = int)
+    #df = region_from_db(okato_id)
+
+    # потребности
+    df_needs = pd.read_csv(file_dir+'pop_needs.csv', index_col=0)
+    needs = df_needs.columns[1:]
+    age_groups = df_needs['Возраст']
+    values = df_needs.iloc[:,1:].values
+
+    # высчитываем от каждой возрастной группы
+    all_values = np.array([0.,0.,0.,0.,0.,0.,0.,0.])
+    k_temp = df[given_year]
+    all_count = k_temp.sum().sum()
+    for age_group, value in zip(age_groups[::-1], values[::-1]):
+        start = int(age_group.split('-')[0])
+        finish = int(age_group.split('-')[1])
+        percent = k_temp.loc[start:finish].abs().sum().sum() / all_count
+        all_values += np.array(value) * percent
+
+    fc = pd.DataFrame([all_values], columns=needs)
+    return fc.apply(lambda x: x/fc.sum(1)).to_json(orient="split")
+
+
+@bp_api.route('/regions/pop_needs', methods=['GET'])
+@cross_origin()
+def pop_needs():
+    df = pd.read_csv(file_dir+'pop_needs.csv', index_col=0)
+    return df.to_json(orient="split")
 
 
 @bp_api.route('/regions/density_data', methods=['GET'])
