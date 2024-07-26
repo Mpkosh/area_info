@@ -1,0 +1,137 @@
+<!doctype html>
+import Chart from 'chart.js/auto';
+<html>
+    <head>
+    </head>
+    <body>
+        <h1>The region id is: {{ okato_id }}. Yуууууes.</h1>
+        <span id="par1">{{ ageGroupsDf }}</span>
+        <span id="par2">{{ given_year }}</span>
+        <span id="par3">{{ area_name }}</span>
+        <div>
+        {% if 1 != 2 %}
+            <br><br>
+            <span id="plot">
+            <a href="javascript:translate('{{area_name}}')">
+                {{ ('Plot pyramid') }}
+            </a>
+            </span>
+            {% endif %}
+            
+        </div>
+        
+        <div>
+        {% if 1 != 2 %}
+            <br><br>
+            <span id="plot_real">
+            <a href="javascript:plotPopulationInfo( '{{ageGroupsDf}}', '{{given_year}}', '{{area_name}}');">
+                {{ ('Really plot pyramid Not translate!') }}
+            </a>
+            </span>
+            {% endif %}
+            
+        </div>
+        
+        <script>
+        
+        
+        async function translate(text) {
+            const response = await fetch('/api/regions/translate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json; charset=utf-8'},
+                body: JSON.stringify({
+                    text: document.getElementById("par3").innerText
+                    })
+            })
+            const data = await response.json();
+            document.getElementById("plot").innerText = data.text
+        }
+        
+        
+    
+    
+    // Create a new figure
+    function plotPopulationInfo(ageGroupsDf, chosenYears, areaName, figsize = [10, 13]) {
+
+    const figure = new Chart(document.getElementById('plot_real'), {
+        type: 'line',
+        data: {
+            labels: ageGroupsDf.index,
+            datasets: []
+        },
+        options: {
+            title: {
+                display: true,
+                text: `Возрастно-половая структура населения ${areaName} район`,
+                fontSize: 13
+            },
+            legend: {
+                display: true,
+                position: 'top'
+            },
+            scales: {
+                y: {
+                    title: {
+                        display: true,
+                        text: 'Возраст (лет)',
+                        fontSize: 11
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Количество (чел.)',
+                        fontSize: 12
+                    }
+                }
+            }
+        }
+    });
+
+    const colorList = ['red', 'orange', 'green', 'blue', 'cyan', 'magenta', 'gray', 'orchid', 'lime', 'teal', 'black'];
+
+    if (chosenYears === 'all') {
+        chosenYears = ageGroupsDf.columns.levels;
+    }
+
+    for (const year of chosenYears) {
+        const kTemp = ageGroupsDf[year].slice();
+        // To plot males on the left side of the chart
+        kTemp['Мужчины'] = kTemp['Мужчины'].map(x => -x);
+
+        const alpha = 0.4;
+        const alphaFill = 0.15;
+        const color = colorList.shift();
+
+        figure.data.datasets.push({
+            label: `${year} г.`,
+            data: kTemp['Женщины'],
+            borderColor: color,
+            fill: true,
+            backgroundColor: color,
+            pointStyle: 'circle',
+            pointRadius: 5,
+            pointHoverRadius: 10,
+            alpha,
+            fillAlpha: alphaFill
+        });
+
+        figure.data.datasets.push({
+            data: kTemp['Мужчины'],
+            borderColor: color,
+            fill: true,
+            backgroundColor: color,
+            pointStyle: 'circle',
+            pointRadius: 5,
+            pointHoverRadius: 10,
+            alpha,
+            fillAlpha: alphaFill
+        });
+    }
+
+    figure.update();
+    }
+        </script>
+        
+    </body>
+</html>
