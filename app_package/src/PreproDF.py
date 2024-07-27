@@ -211,15 +211,19 @@ def add_ages_70_to_100(df):
     Добавление возрастов с интервалом в 1 для 70-100 лет.
     '''
     # берем интервалы возрастов после 70
-    ages_brackets = ['70-74','75-79','80-84','85-89','90-94','95-99','100']
-    years = df.columns[1:].values
+    ages_brackets = ['70-74','75-79','80-84','85-89','90-94','95-99',100]
+    years = df.columns.get_level_values(0).unique()#df.columns[1:].values
     
     for i in range(len(ages_brackets)-1):
+        res_both_sex = []
         for sex in ['Женщины','Мужчины']:
-            first_cohort = df[(df.index == ages_brackets[i]) & (df['пол']==sex)
-                             ].loc[:, years].values[0]
-            next_cohort = df[(df.index == ages_brackets[i+1]) & (df['пол']==sex)
-                            ].loc[:, years].values[0]
+            print(ages_brackets[i], sex)
+            #first_cohort = df[(df.index == ages_brackets[i]) & (df['пол']==sex)].values[0]
+            first_cohort = df.loc[:,df.columns.get_level_values('пол')==sex
+                  ][df.index == ages_brackets[i]].values[0]
+            #next_cohort = df[(df.index == ages_brackets[i+1]) & (df['пол']==sex)].values[0]
+            next_cohort = df.loc[:,df.columns.get_level_values('пол')==sex
+                  ][df.index == ages_brackets[i+1]].values[0]
             # чем больше разница, тем сильнее перекошены наши вероятности
             probs = np.linspace(first_cohort, next_cohort, num=5)
             probs = probs/probs.sum(0)
@@ -233,17 +237,25 @@ def add_ages_70_to_100(df):
 
             # составляем датафрейм и меняем названия колонок и индексов    
             res = pd.DataFrame(np.array(res).T, columns=years)    
-            res['пол'] = sex
+            #res['пол'] = sex
             new_index = np.arange(int(ages_brackets[i][:2]), int(ages_brackets[i][3:5])+1)
             res.index = new_index.astype('str')
+            
+            res.columns= pd.MultiIndex.from_product([years, [sex]])
+            res_both_sex.append(res)
+            
+        age_bracket_df = pd.concat(res_both_sex, axis=1)     
+        df = pd.concat([df, age_bracket_df], axis=0)
+        df.columns.set_names(['', "пол"], level=[0,1], inplace=True)
             # объединяем с изначальными данными
-            df = pd.concat([df, res], ignore_index=False, sort=True)
+            #df = pd.concat([df, res], ignore_index=False, sort=True)
+    
     
     # поставим название колонки индексов
     df.index.names = ['группа']
     # перенесем колонку "пол" в начало
-    cols = df.columns.tolist()
-    cols = cols[-1:] + cols[:-1]
-    df = df[cols]
+    #cols = df.columns.tolist()
+    #cols = cols[-1:] + cols[:-1]
+    #df = df[cols]
     
     return df.round()

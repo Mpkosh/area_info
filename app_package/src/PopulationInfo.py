@@ -34,7 +34,7 @@ def age_groups(df, n_in_age_group=5):
             if 100 - last_age > 1:
                 groups += [f'{last_age+1}-100']
             else:
-                groups += ['100']
+                groups += [100]
         # если человек перечислил новые интервалы   
         if isinstance(n_in_age_group, list): 
             groups = n_in_age_group
@@ -43,7 +43,8 @@ def age_groups(df, n_in_age_group=5):
         indexes = []
         for age_group in groups:
             # если задан интервал    
-            if '-' in age_group:
+            if '-' in str(age_group):
+                # если интервала нет в изначальных данных
                 if age_group not in df.index:
                     # раскрываем интервал
                     age_brackets = [int(i) for i in age_group.split('-')]
@@ -110,14 +111,14 @@ def plot_population_info(age_groups_df, chosen_years='all',
         alpha_fill=0.15
         color = color_list.pop(0)
         
-        plt.plot(k_temp[female_str_in_df], k_temp.index, ls='-', marker='.', 
+        plt.plot(k_temp[female_str_in_df], k_temp.index.astype(str), ls='-', marker='.', 
                  color=color, alpha=alpha,lw=2, label=str(year)+' г.')
-        plt.fill_betweenx(y=k_temp.index, x1=k_temp[female_str_in_df], 
+        plt.fill_betweenx(y=k_temp.index.astype(str), x1=k_temp[female_str_in_df], 
                           facecolor=color, alpha=alpha_fill)
         
-        plt.plot(k_temp[male_str_in_df], k_temp.index, ls='-', marker='.', 
+        plt.plot(k_temp[male_str_in_df], k_temp.index.astype(str), ls='-', marker='.', 
                  color=color, alpha=alpha,lw=2)
-        plt.fill_betweenx(y=k_temp.index, x1=k_temp[male_str_in_df], 
+        plt.fill_betweenx(y=k_temp.index.astype(str), x1=k_temp[male_str_in_df], 
                           facecolor=color, alpha=alpha_fill)
     
     plt.legend(loc='best', prop={'size': 12})
