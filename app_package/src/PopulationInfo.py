@@ -124,7 +124,7 @@ def plot_population_info(age_groups_df, chosen_years='all',
     plt.legend(loc='best', prop={'size': 12})
     plt.ylabel('Возраст (лет)', fontsize=label_size)
     plt.xlabel('Количество (чел.)', fontsize=label_size)
-    plt.title(f'Возрастно-половая структура населения района {area_name}',
+    plt.title('Возрастно-половая структура населения территории',
              fontsize=title_size)
     # перенесем yaxis в середину графика
     plt.gca().spines['left'].set_position(('data', 0.0))
@@ -287,7 +287,7 @@ def plot_difference_info(df, area_name = 'Кингисеппский',
     plt.xlabel('Возрастной интервал', fontsize=label_size)
     plt.ylabel('Количество (чел.)', fontsize=label_size)
     plt.tight_layout()
-    plt.title(f'Разница ожидаемого (от {year-1} г.) и реального ({year} г.) населения в районе {area_name}', 
+    plt.title('Разница ожидаемого (от {year-1} г.) и реального ({year} г.) населения территории', 
               fontsize=title_size)
     plt.xticks(fontsize=tick_size)
     plt.yticks(fontsize=tick_size)
