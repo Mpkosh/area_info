@@ -124,7 +124,7 @@ def pyramid_data():
     # чтобы мужчины были слева графика
     age_groups_df[given_year]['Мужчины'] *= -1
     age_groups_df.index = age_groups_df.index.astype(str)
-    return age_groups_df.to_json(orient="split")
+    return age_groups_df[given_year].to_json(orient="split")
 
 
 @bp_api.route('/regions/migration_plot', methods=['GET'])
