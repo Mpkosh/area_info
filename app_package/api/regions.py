@@ -13,7 +13,7 @@ import numpy as np
 import requests
 from shapely.geometry import Polygon
 #from app.api.errors import bad_request
-from app_package.src import PreproDF, PopulationInfo, AreaOnMapFile
+from app_package.src import PreproDF, PopulationInfo, AreaOnMapFile, DensityInfo
 from flask_cors import CORS, cross_origin
 
 file_dir = 'app_package/src/population_data/'
@@ -245,6 +245,7 @@ def migration_data():
 def create_polygon(coordinates):
     return Polygon(coordinates[0])
 
+
 # todo: return as a layer
 @bp_api.route('/regions/density_map', methods=['GET'])
 @cross_origin()
@@ -317,6 +318,23 @@ def density_data():
     
     #return df[['fid','name',str(given_year), 'geometry', clm_with_dnst,'binned']].to_json()
     return df[['territory_id','name','geometry',given_year, clm_with_dnst,'binned']].to_json()
+
+
+@bp_api.route('/regions/density_data_full', methods=['GET'])
+@cross_origin()
+def density_data_full():
+    parent_id = request.args.get('parent_id', type = str)
+    given_year = request.args.get('given_year', type = int)
+
+    session = requests.Session()
+    
+    full_df = DensityInfo.density_data_geojson(session=session, territory_id=parent_id, 
+                                                 from_api=True)
+    '''
+    areas_df = areas_df[['name',f'{given_year}','S_km2',f'{given_year}_dnst',
+                         f'{given_year}_dnst_binned','geometry']]
+    '''
+    return full_df.to_json()
 
 
 @bp_api.route('/regions/area_needs', methods=['GET'])
