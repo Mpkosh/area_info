@@ -11,7 +11,7 @@ def get_all_children_data(session, territory_id=34, from_api=False):
     # все населенные пункты, ГП, СП, входящие в заданный район
     if from_api:
         get_all_levels_str = 'true'
-        url = f'http://10.32.1.107:5300/api/v2/territories?parent_id={territory_id}&get_all_levels={get_all_levels_str}&size=1000'
+        url = f'http://urban-api-107.idu.kanootoko.org/api/v2/territories?parent_id={territory_id}&get_all_levels={get_all_levels_str}&size=1000'
         r = session.get(url)
         children = pd.DataFrame(r.json())
         #children.to_json(f'json_api_for_map/children_{territory_id}.json')
@@ -50,7 +50,7 @@ def clip_all_children(all_children):
 def get_first_children_data(session, territory_id=34, from_api=False):
     # 34 -- Всеволожский муниципальный район
     if from_api:
-        url=f'http://10.32.1.107:5300/api/v1/territory/indicator_values?parent_id={territory_id}&indicator_ids=1&last_only=false'
+        url=f'http://urban-api-107.idu.kanootoko.org/api/v1/territory/indicator_values?parent_id={territory_id}&indicator_ids=1&last_only=false'
         r = session.get(url)
         first_children = pd.DataFrame(r.json())
         #first_children.to_json(f'json_api_for_map/first_children_{territory_id}.json')
