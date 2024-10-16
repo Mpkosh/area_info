@@ -61,16 +61,17 @@ def get_first_children_data(session, territory_id=34, from_api=False):
     # df: territory_id, name, indicators
     vills_with_pop = pd.json_normalize(vills_with_geom['properties'], max_level=0)
 
-    # раскрываем json с данными о населении
-    # на выходе pd Series [[years, pop_values],...]
-    pop_vals = vills_with_pop['indicators'].apply(lambda x: pd.json_normalize(x)[['date_value','value']].values)
-    # берем года для будущих названий колонок
-    clms = pop_vals[0][:,0]
-    clms = [c[:4] for c in clms] # ['2019', '2020', '2021', '2022', '2023']
-    # собираем все значения в один массив
-    # 19 x 5 x -1
-    pop_vals_one_arr = np.concatenate(pop_vals).reshape(vills_with_geom.shape[0], len(clms), -1) 
-    vills_with_pop[clms] = pop_vals_one_arr[:,:,1]
+    if vills_with_pop['indicators'].str.len().min() > 0:
+        # раскрываем json с данными о населении
+        # на выходе pd Series [[years, pop_values],...]
+        pop_vals = vills_with_pop['indicators'].apply(lambda x: pd.json_normalize(x)[['date_value','value']].values)
+        # берем года для будущих названий колонок
+        clms = pop_vals[0][:,0]
+        clms = [c[:4] for c in clms] # ['2019', '2020', '2021', '2022', '2023']
+        # собираем все значения в один массив
+        # 19 x 5 x -1
+        pop_vals_one_arr = np.concatenate(pop_vals).reshape(vills_with_geom.shape[0], len(clms), -1) 
+        vills_with_pop[clms] = pop_vals_one_arr[:,:,1]
     vills_with_pop = vills_with_pop.drop('indicators', axis='columns')
     
     for_use = vills_with_geom.copy()
