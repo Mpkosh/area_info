@@ -324,7 +324,6 @@ def density_data():
 @cross_origin()
 def density_data_full():
     parent_id = request.args.get('parent_id', type = str)
-    given_year = request.args.get('given_year', type = int)
 
     session = requests.Session()
     
