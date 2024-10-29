@@ -3,7 +3,7 @@ import pandas as pd
 import geopandas as gpd
 from app_package.src import PreproDF, DemForecast
 import numpy as np
-from tqdm.notebook import tqdm
+#from tqdm.notebook import tqdm
 
 
 def to_interval(x):
@@ -188,8 +188,7 @@ def data_for_each(session, t_id):
 def get_second_children(session, first_children, child_level):
     all_second_children = gpd.GeoDataFrame()
     # для каждого ребенка берем вторых детей
-    for main_id in tqdm(first_children.territory_id.values, 
-                        leave=False, desc='children'):
+    for main_id in first_children.territory_id.values:
         if child_level < 4:
             second_children = children_pop_dnst(session, main_id, pop_and_dnst=True)
         else:
