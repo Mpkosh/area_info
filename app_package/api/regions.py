@@ -13,7 +13,8 @@ import numpy as np
 import requests
 from shapely.geometry import Polygon
 #from app.api.errors import bad_request
-from app_package.src import PreproDF, PopulationInfo, AreaOnMapFile, DensityInfo
+from app_package.src import PreproDF, PopulationInfo, \
+                            AreaOnMapFile, DensityInfo, PopInfoForAPI
 from flask_cors import CORS, cross_origin
 
 file_dir = 'app_package/src/population_data/'
@@ -387,3 +388,25 @@ def area_needs():
 def pop_needs():
     df = pd.read_csv(file_dir+'pop_needs.csv', index_col=0)
     return df.to_json(orient="split")
+
+
+@bp_api.route('/regions/main_info', methods=['GET'])
+@cross_origin()
+def main_info():
+    territory_id = request.args.get('territory_id', type = int)
+    show_level = request.args.get('show_level', type = int)
+    
+    result = PopInfoForAPI.main_pop_info(territory_id=territory_id, 
+                                         show_level=show_level)
+    return result.set_geometry('geometry').to_json()
+
+
+@bp_api.route('/regions/detailed_info', methods=['GET'])
+@cross_origin()
+def detailed_info():
+    territory_id = request.args.get('territory_id', type = int)
+    pop_df, groups_df, dynamic_pop_df, \
+        soc_pyramid_df, values_df = PopInfoForAPI.detailed_pop_info(territory_id)
+    
+    return [pop_df.to_json(), groups_df.to_json(), dynamic_pop_df.to_json(),
+            soc_pyramid_df.to_json(), values_df.to_json()]
