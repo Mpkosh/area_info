@@ -371,7 +371,7 @@ def main_pop_info(territory_id=34, show_level=3):
     
     # ____ Если данных колонок нет, то добавляем и ставим нули
     cols = ['density','pop_all','pop_younger','pop_can_work','pop_older',
-            'koeff_death','koeff_birth','koeff_migration','values']
+            'koeff_death','koeff_birth','koeff_migration']
     geom = geom.reindex(geom.columns.union(cols, sort=False), axis=1, fill_value=0)
     geom[['pop_all','pop_younger','pop_can_work','pop_older']] = \
         geom[['pop_all','pop_younger','pop_can_work','pop_older']].astype(int)
