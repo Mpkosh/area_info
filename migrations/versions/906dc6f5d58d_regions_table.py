@@ -1,8 +1,8 @@
 """regions table
 
-Revision ID: 9a4c7a47bb43
+Revision ID: 906dc6f5d58d
 Revises: 
-Create Date: 2024-05-15 17:32:28.984072
+Create Date: 2024-10-31 18:14:46.191133
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '9a4c7a47bb43'
+revision = '906dc6f5d58d'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -21,7 +21,6 @@ def upgrade():
     op.create_table('region',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('okato_id', sa.String(length=11), nullable=False),
-    sa.Column('pop_data', sa.String(length=140), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     # ### end Alembic commands ###

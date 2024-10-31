@@ -13,14 +13,15 @@ from flask_migrate import Migrate
 
 db = SQLAlchemy()
 migrate = Migrate()
-    
 
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(Config)
-    
+        
     db.init_app(app)
     migrate.init_app(app, db)
+    
+   
     # blueprint registration
     from app_package.main import bp as bp_main
     app.register_blueprint(bp_main, url_prefix='/main')

@@ -55,6 +55,7 @@ def prepro_from_api(df_from_json, given_years=[2019,2020], unpack_after_70=False
     return df
 
 
+# --
 def get_S_and_dnst_children(session, territory_id=34):
     # здесь для ЛО нет площади
     
@@ -178,6 +179,7 @@ def groups_3(x):
     return [pop_all, pop_younger, pop_can_work, pop_older]
 
 
+# --
 def data_for_each(session, t_id):
     density = last_pop_and_dnst(session=session, territory_id=t_id, dnst=True)
     dd = get_detailed_pop(session=session, territory_id=t_id, unpack_after_70=False)
