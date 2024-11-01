@@ -3,20 +3,20 @@ import requests
 import pandas as pd
 from shapely.geometry import shape
 import numpy as np
-#import plotly.express as px
 from app_package.src import AreaOnMapFile
+import os
 
 
-def get_all_children_data(session, territory_id=34, from_api=False):
+social_api = os.environ.get('SOCIAL_API')
+territories_api = os.environ.get('TERRITORY_API') 
+
+
+def get_all_children_data(session, territory_id=34, from_api=True):
     # все населенные пункты, ГП, СП, входящие в заданный район
-    if from_api:
-        get_all_levels_str = 'true'
-        url = f'http://urban-api-107.idu.kanootoko.org/api/v2/territories?parent_id={territory_id}&get_all_levels={get_all_levels_str}&size=1000'
-        r = session.get(url)
-        children = pd.DataFrame(r.json())
-        #children.to_json(f'json_api_for_map/children_{territory_id}.json')
-    else:
-        children = pd.read_json(f'json_api_for_map/children_{territory_id}.json')
+    get_all_levels_str = 'true'
+    url = territories_api + f'api/v2/territories?parent_id={territory_id}&get_all_levels={get_all_levels_str}&size=1000'
+    r = session.get(url)
+    children = pd.DataFrame(r.json())
     # раскрываем json
     res = pd.json_normalize(children['results'], max_level=0)
     res_vill = pd.concat([res.drop('parent', axis='columns'), 
@@ -47,15 +47,12 @@ def clip_all_children(all_children):
     return np_clipped
 
 
-def get_first_children_data(session, territory_id=34, from_api=False):
+def get_first_children_data(session, territory_id=34, from_api=True):
     # 34 -- Всеволожский муниципальный район
-    if from_api:
-        url=f'http://urban-api-107.idu.kanootoko.org/api/v1/territory/indicator_values?parent_id={territory_id}&indicator_ids=1&last_only=false'
-        r = session.get(url)
-        first_children = pd.DataFrame(r.json())
-        #first_children.to_json(f'json_api_for_map/first_children_{territory_id}.json')
-    else:
-        first_children = pd.read_json(f'json_api_for_map/first_children_{territory_id}.json')
+    url=territories_api+f'api/v1/territory/indicator_values?parent_id={territory_id}&indicator_ids=1&last_only=false'
+    r = session.get(url)
+    first_children = pd.DataFrame(r.json())
+    
     # df: type, geometry, properties(territory_id,name,...)
     vills_with_geom = pd.json_normalize(first_children['features'], max_level=0)
     # df: territory_id, name, indicators
@@ -99,9 +96,7 @@ def get_color_list():
                          '500 — 1 000': 'rgba(40, 168, 131, 0.55)',
                          '1 000 — 5 000': 'rgba(124, 209, 79, 0.55)',
                          '5 000 — ...': 'rgba(253, 231, 37, 0.55)'}
-    
-   
-    
+
     return common_color_list
 
 
@@ -133,66 +128,6 @@ def get_density_data(session, territory_id=34, from_api=False):
     
     return df, fin_vills_full, all_children
 
-
-def plot_density_data(session, territory_id=34, year=2023, from_api=False):
-    # для применения mapbox_style="light" (названия поверх цветных границ)
-    token = 'pk.eyJ1IjoibWFyeWtrayIsImEiOiJjbHV3aW5oeTcwY3c0MmptaWU1Z2Z4dGg0In0.FsgSalNNl7L6AvSDU3tr4w'
-    common_color_list = get_color_list()
-    # данные о ГП/СП, данные об НП
-    df, fin_vills_full, _ = get_density_data(session, territory_id, from_api)
-    col_dnst = f'{year}_dnst'
-    col_b_dnst = f'{year}_dnst_binned'
-    # geometry_x -- полигоны ГП/СП, geometry_y -- точки деревень
-    fin_vills = fin_vills_full[['name','geometry_y',col_b_dnst]]
-    fin_vills.columns = ['name','geometry',col_b_dnst]
-    fin_vills = gpd.GeoDataFrame(fin_vills)
-    
-    # центральная точка для фиксирования карты
-    coord = df.dissolve().to_crs(epsg=6933).centroid.to_crs(epsg=4326).values[0]
-    center_ll = [coord.y, coord.x]
-    
-    # сначала сортируем, потом -- в строку
-    df = df.sort_values(col_b_dnst)
-    # .astype('str') тк иначе жалуется, если отсутствует категория
-    df[col_b_dnst] = df[col_b_dnst].astype('str') 
-    # берем НП в таком же порядке родительских названий
-    fin_vills = fin_vills.set_index('name').loc[df.name].reset_index()
-    
-    color_list = [common_color_list[i] for i in df[col_b_dnst].unique()]
-    
-    # в hover_data не убирается инф-ия об индексе; пусть будет тогда territory_id
-    df_ti = df.set_index('territory_id')
-    # рисуем сами границы ГП/СП
-    fig = px.choropleth_mapbox(data_frame = df_ti, geojson=df_ti['geometry'], 
-                               locations=df_ti.index, color=col_b_dnst,
-                               hover_name=df_ti.name + '<br>(плотность: ' + df_ti[col_dnst].astype('str')+')', 
-                               hover_data = {col_dnst:False, col_b_dnst:False}, 
-                               labels={col_dnst:'Плотность', 
-                                       col_b_dnst: f'<br>Плотность населения<br>(чел/км\N{SUPERSCRIPT TWO})'},
-                               # чтобы макс.плотность была первым цветом (желтая)
-                               color_discrete_sequence = color_list, opacity=0.5,
-                               zoom=8, center = {"lat": center_ll[0], "lon": center_ll[1]})
-    
-    fig.update_traces(marker_line_width=0.6, marker_opacity=0.4, marker_line_color='darkgray')
-    fig.update_layout(mapbox_style="light", mapbox_accesstoken=token,
-                     margin={"r":0,"t":0,"l":0,"b":0},
-                     autosize=True)
-
-    # рисуем НП: города/деревни/села/...
-    fin_vills[col_b_dnst] = fin_vills[col_b_dnst].astype('str') 
-    fig_children = px.choropleth_mapbox(fin_vills, geojson=fin_vills['geometry'], color=col_b_dnst,
-                                color_discrete_sequence = color_list, 
-                                locations=fin_vills.index, zoom=8, 
-                                center = {"lat": center_ll[0], "lon": center_ll[1]}, 
-                                opacity=1)
-    
-    fig_children.update_traces(marker_line_width=0.1, marker_opacity=0.6, marker_line_color='lightgray',
-                       showlegend=False, hoverinfo='skip', hovertemplate=None)
-    fig_children.update_layout(hovermode=False)
-    # объединяем
-    fig.add_traces(list(fig_children.select_traces()))
-    fig.show()
-    
     
 def density_data_geojson(session, territory_id=34, from_api=False):
     # данные о ГП/СП и НП

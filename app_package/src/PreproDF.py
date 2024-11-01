@@ -30,8 +30,8 @@ def df_from_excel(file_name='pandask.xlsx', area_name='Кингисеппски�
         df = pd.read_excel(file, sheet_name=found_sheet_name[0], 
                            header=[1]).rename(columns = {"Unnamed: 0":"пол"})
         return df
-    else:
-        print(f"Страница с районом '{area_name}' не найдена")
+    #else:
+       # print(f"Страница с районом '{area_name}' не найдена")
 
         
 def df_from_csv(df, year=2023):
@@ -217,7 +217,7 @@ def add_ages_70_to_100(df):
     for i in range(len(ages_brackets)-1):
         res_both_sex = []
         for sex in ['Женщины','Мужчины']:
-            print(ages_brackets[i], sex)
+            #print(ages_brackets[i], sex)
             #first_cohort = df[(df.index == ages_brackets[i]) & (df['пол']==sex)].values[0]
             first_cohort = df.loc[:,df.columns.get_level_values('пол')==sex
                   ][df.index == ages_brackets[i]].values[0]

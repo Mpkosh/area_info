@@ -1,13 +1,14 @@
 import pandas as pd
 import numpy as np
 from io import BytesIO
-
+'''
 import matplotlib.ticker as mticker
 import matplotlib
 matplotlib.use('AGG') # must be imported before pyplot
 import matplotlib.pyplot as plt
-
+'''
 from app_package.src.AuxFilePrepro import get_mor_rate
+
 
 def age_groups(df, n_in_age_group=5):
     '''
@@ -58,8 +59,8 @@ def age_groups(df, n_in_age_group=5):
                 # если возраст есть в изначальных данных
                 if int(age_group) in df.index:
                     new = df[df.index==int(age_group)].squeeze(axis=0)
-                else:
-                    print(f'Возраст {age_group} в данных нет.')
+                # else:
+                    # print(f'Возраст {age_group} в данных нет.')
 
             indexes.append(age_group)
             result.append(new)
@@ -73,9 +74,9 @@ def age_groups(df, n_in_age_group=5):
     return chosen_age_groups
 
     
-def plot_population_info(age_groups_df, chosen_years='all', 
+'''def plot_population_info(age_groups_df, chosen_years='all', 
                          area_name='Кингисеппский', figsize=(10,13)):
-    '''
+    
     График возрастно-половой пирамиды.
     Параметры:
         age_groups_df -- датасет;
@@ -84,7 +85,7 @@ def plot_population_info(age_groups_df, chosen_years='all',
         figsize -- размер графика (x,y).
     Вывод:
         График.
-    '''
+    
     plt.figure(figsize=figsize)
     # выводим значения на осях на первый план
     plt.rcParams["axes.axisbelow"] = False
@@ -158,7 +159,7 @@ def plot_population_info(age_groups_df, chosen_years='all',
     plt.savefig(bytes_image, format='png')
     #plt.close(fig)
     bytes_image.seek(0)
-    return bytes_image
+    return bytes_image'''
 
 
 def calc_mor_rate(df_ages_1, morrate_file='/population_data/morrateLO.xlsx'):
@@ -235,9 +236,9 @@ def group_by_age(difference_df, n_in_age_group=5):
     return df.round(0)
 
 
-def plot_difference_info(df, area_name = 'Кингисеппский',
+'''def plot_difference_info(df, area_name = 'Кингисеппский',
                          chosen_year=2023, figsize=(16,8)):
-    '''
+    
     График разности ожидаемых и реальных значений числа людей.
     Параметры:
         df -- датасет с сальдо, сгруппированный по возрастам;
@@ -247,7 +248,7 @@ def plot_difference_info(df, area_name = 'Кингисеппский',
         figsize -- размер графика (x,y).
     Вывод:
         График.
-    '''
+    
 
     required_part = df.loc[:,chosen_year]
 
@@ -298,5 +299,5 @@ def plot_difference_info(df, area_name = 'Кингисеппский',
     bytes_image = BytesIO() # BytesIO stream containing the data
     plt.savefig(bytes_image, format='png')
     bytes_image.seek(0)
-    return bytes_image
+    return bytes_image'''
    

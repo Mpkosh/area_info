@@ -6,7 +6,7 @@ Created on Fri Mar 29 14:41:59 2024
 """
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 from app_package.src import PreproDF
 from app_package.src.AuxFilePrepro import get_mor_rate
 
@@ -71,7 +71,7 @@ def total(df):
     return np.array(years).astype(int), np.array(pop)
 
 
-'''График всего населения'''
+'''График всего населения
 def plot_total(df, forecast, title=None):
     oldpop=total(df)
     newpop=total(forecast)
@@ -86,20 +86,4 @@ def plot_total(df, forecast, title=None):
     plt.grid()
     plt.show()
     return None
-
-
-if __name__=='__main__':
-    folders={'datadir':'../region_data/',
-         'popdir':'../population_data/',
-         'geodir':'../geo_data/',
-          'file_name':'Ленинградская область.xlsx'}
-    
-    region='Лодейнопольский'
-    # читаем
-    df_ex = PreproDF.df_from_excel(file_name=folders['datadir']+folders['file_name'], area_name=region)
-    # предобрабатываем датафрейм
-    df = PreproDF.prepro_df(df_ex, morrate_file=folders['popdir']+'morrate.xlsx')
-    horizon=5
-    year0=2023
-    forecast=MakeForecast(df, year0, horizon, folders)
-    plot_total(df, forecast, region)
+'''

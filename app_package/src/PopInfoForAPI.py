@@ -4,6 +4,11 @@ import geopandas as gpd
 from app_package.src import PreproDF, DemForecast
 import numpy as np
 #from tqdm.notebook import tqdm
+import os
+
+
+social_api = os.environ.get('SOCIAL_API')
+territories_api = os.environ.get('TERRITORY_API') 
 
 
 def to_interval(x):
@@ -58,10 +63,9 @@ def prepro_from_api(df_from_json, given_years=[2019,2020], unpack_after_70=False
 # --
 def get_S_and_dnst_children(session, territory_id=34):
     # здесь для ЛО нет площади
-    
     # по этому запросу есть нужная площадь без воды.
     # + есть плотность за посл. год, но посчитана по площади C водой, поэтому считаем сами
-    url=f'https://urban-api-107.idu.kanootoko.org/api/v2/territories_without_geometry?parent_id={territory_id}&get_all_levels=false&ordering=asc&size=1000'
+    url= territories_api + f'api/v2/territories_without_geometry?parent_id={territory_id}&get_all_levels=false&ordering=asc&size=1000'
     r = session.get(url)
     res = pd.DataFrame(r.json())
     res = pd.json_normalize(res['results'], max_level=1)
@@ -80,7 +84,7 @@ def children_pop_dnst(session, territory_id, pop_and_dnst=True):
     # здесь для НП нет инф-ии о численности и площади
     # для ЛО и territory_type_id=3 показывает только Сосновоборский
     # для ЛО и territory_type_id=4 показывает []
-    url=f'https://urban-api-107.idu.kanootoko.org/api/v2/territories?parent_id={territory_id}&get_all_levels=false&ordering=asc&size=1000'
+    url=territories_api + f'api/v2/territories?parent_id={territory_id}&get_all_levels=false&ordering=asc&size=1000'
     r = session.get(url).json()
     if r['results']:
         res = pd.DataFrame(r)
@@ -105,7 +109,7 @@ def children_pop_dnst(session, territory_id, pop_and_dnst=True):
 
 
 def children_pop_dnst_LO(session, territory_id):
-    url=f'https://urban-api-107.idu.kanootoko.org/api/v1/territory/indicator_values?parent_id={territory_id}&indicator_ids=1%2C4&last_only=True'
+    url= territories_api + f'api/v1/territory/indicator_values?parent_id={territory_id}&indicator_ids=1%2C4&last_only=True'
     r = session.get(url).json()
     with_geom = gpd.GeoDataFrame.from_features(r['features']).set_crs(epsg=4326)
     fin = with_geom[['territory_id','name','geometry']]
@@ -130,7 +134,7 @@ def children_pop_dnst_LO(session, territory_id):
 
 def last_pop_and_dnst(session, territory_id, dnst=False, both=False):
     # площадь без воды и численность
-    url=f'https://urban-api-107.idu.kanootoko.org/api/v1/territory/{territory_id}/indicator_values?indicator_ids=4%2C%201&last_only=True'
+    url= territories_api + f'api/v1/territory/{territory_id}/indicator_values?indicator_ids=4%2C%201&last_only=True'
     r = session.get(url)
     r = pd.DataFrame(r.json())
     indicators = pd.json_normalize(r['indicator'])
@@ -153,7 +157,7 @@ def last_pop_and_dnst(session, territory_id, dnst=False, both=False):
     
 
 def get_detailed_pop(session, territory_id, unpack_after_70, last_year=True):
-    url = f'https://socdemo.lok-tech.com/indicators/2/{territory_id}/detailed'
+    url = social_api + f'indicators/2/{territory_id}/detailed'
     r = session.get(url)
     if r.status_code == 200:
         df_from_json = pd.DataFrame(r.json())
@@ -179,14 +183,6 @@ def groups_3(x):
     return [pop_all, pop_younger, pop_can_work, pop_older]
 
 
-# --
-def data_for_each(session, t_id):
-    density = last_pop_and_dnst(session=session, territory_id=t_id, dnst=True)
-    dd = get_detailed_pop(session=session, territory_id=t_id, unpack_after_70=False)
-    pop_all, pop_younger, pop_can_work, pop_older = groups_3(dd)
-    return [density, pop_all, pop_younger, pop_can_work, pop_older]
-
-
 def get_second_children(session, first_children, child_level):
     all_second_children = gpd.GeoDataFrame()
     # для каждого ребенка берем вторых детей
@@ -207,7 +203,6 @@ def fill_in_by_34(session, territory_id, geom):
         geom['pop_all'] = last_pop_and_dnst(session=session,
                                             territory_id=territory_id,
                                             dnst=False)
-
     # раскидываем числа с учетом вероятностей Всеволожского
     np.random.seed(27) 
     geom[['pop_younger','pop_can_work','pop_older']
@@ -219,11 +214,10 @@ def fill_in_by_34(session, territory_id, geom):
 
 def barebones_for_info(territory_id, session, show_level):
     # ____ Узнаем уровень территории
-    url= f'https://urban-api-107.idu.kanootoko.org/api/v1/territory/{territory_id}'
+    url= territories_api + f'api/v1/territory/{territory_id}'
     r_main = session.get(url).json()
     territory_type = r_main['territory_type']['territory_type_id']
-    
-    print(territory_type,show_level)
+
     # численность будем брать не здесь (r_main), тк в .../api/v1/territory/{territory_id} 
     # нет привязки численности к дате, лучше уверенно взять самую новую инф-ию
     # ____ Делаем костяк нашего geojson'а
@@ -250,7 +244,7 @@ def barebones_for_info(territory_id, session, show_level):
         # для НП (show_level=4) нет инф-ии о численности и площади
         if show_level==4:
             # поэтому восполняем тем, что есть; на всякий случай сортируем
-            print('Заполнение колонки pop_all с файла towns.geojson')
+            # print('Заполнение колонки pop_all с файла towns.geojson')
             towns = gpd.read_file('app_package/src/towns.geojson').sort_values(by='territory_id')
             geom = geom.sort_values(by='territory_id')
             geom['pop_all'] = towns[towns.territory_id.isin(geom.territory_id)]['population'].values
@@ -280,7 +274,7 @@ def barebones_for_info(territory_id, session, show_level):
     # если просят показать уровень выше заданной тер-рии -- ошибка
     # (Ex: передали Романовское СП, а просят показать уровень Всев.района)
     else:
-        return 'Stop the madness'
+        return '!Stop the madness! Show_level should be less or equal to territory level'
        
     return r_main, territory_type, geom
 
@@ -312,24 +306,20 @@ def main_pop_info(territory_id=34, show_level=3):
     if (show_level <= 2) & (territory_type == show_level):
         # численность тоже отсюда, тк в .../api/v1/territory/{territory_id} 
         # нет привязки численности к дате, лучше уверенно взять самую новую инф-ию
-        '''
-        geom['density'] = last_pop_and_dnst(session=session, territory_id=territory_id, 
-                                       dnst=True)
-        '''
         pop_df = get_detailed_pop(session, territory_id, False)
         if pop_df.shape[0]:
             geom[['pop_all','pop_younger','pop_can_work','pop_older']] = groups_3(pop_df)
 
         # Если половозрастные данные ожидались, но не получились -- наполняем так    
         else:
-            print('Половозрастные данные не найдены; берем вероятности Всеволожского района')
+            # print('Половозрастные данные не найдены; берем вероятности Всеволожского района')
             geom = fill_in_by_34(session, territory_id, geom)
 
 
     #elif show_level-1 <= 2:
        
-    # НО! если заданный родитель с возрастами ИЛИ у заданной территории есть родитель с возрастами
-    # , то заполним инфу для детей на основе родителя
+    # НО! если заданный родитель с возрастами ИЛИ у заданной территории есть родитель с возрастами,
+    # то заполним инфу для детей на основе родителя
 
     # если уровень территории имеет родителя (поселение или город)
     elif territory_type-1 <= 2:
@@ -341,7 +331,7 @@ def main_pop_info(territory_id=34, show_level=3):
         else:
             id_of_interest = r_main['parent']['id']
         
-        print(f'Разделение по возрастам от родителя с id {id_of_interest}')
+        # print(f'Разделение по возрастам от родителя с id {id_of_interest}')
         pop_df = get_detailed_pop(session, id_of_interest, False)
         
         if pop_df.shape[0]:
@@ -357,19 +347,11 @@ def main_pop_info(territory_id=34, show_level=3):
 
         # Если половозрастные данные ожидались, но не получились -- наполняем так    
         else:
-            print('Половозрастные данные не найдены; берем вероятности Всеволожского района')
+            # print('Половозрастные данные не найдены; берем вероятности Всеволожского района')
             geom = fill_in_by_34(session, territory_id, geom)
      
-        
     # иначе довольствуемся общей численностью и площадью с основного запроса  
     # а мы и так взяли эту инф-ию с children_pop_dnst
-    '''
-    else:
-        geom['pop_all'] = last_pop_and_dnst(session=session, territory_id=territory_id, 
-                                       dnst=False)
-        S_km2 = r_main['properties']['Площадь территории, кв. км.']
-        geom['density'] = round(geom['pop_all']/S_km2, 2)
-    '''
     
     # ____ Если данных колонок нет, то добавляем и ставим нули
     cols = ['density','pop_all','pop_younger','pop_can_work','pop_older',
@@ -383,12 +365,6 @@ def main_pop_info(territory_id=34, show_level=3):
 
 def detailed_pop_info(territory_id=34):
     session = requests.Session()
-    '''
-    # Узнаем уровень территории
-    url= f'https://urban-api-107.idu.kanootoko.org/api/v1/territory/{territory_id}'
-    r_main = session.get(url).json()
-    territory_type = r_main['territory_type']['territory_type_id']
-    '''
     
     # ____ Половозрастная структура
     pop_df = get_detailed_pop(session, territory_id, True, False)
@@ -422,9 +398,7 @@ def detailed_pop_info(territory_id=34):
     groups_df = pd.concat(r, axis=1).T
     
     # ____ Динамика и прогноз
-    folders={'datadir':'app_package/src/region_data/',
-             'popdir':'app_package/src/population_data/',
-             'geodir':'app_package/src/geo_data/',
+    folders={'popdir':'app_package/src/population_data/',
              'file_name':'Ленинградская область.xlsx'}
     last_pop_year = pop_df.columns.levels[0][-1]
     forecast = DemForecast.MakeForecast(pop_df, last_pop_year, 

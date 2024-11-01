@@ -4,24 +4,31 @@ Created on Wed May 15 14:11:49 2024
 
 @author: user
 """
-from app_package.api import bp as bp_api
 from flask import request, send_file
+from flask_cors import CORS, cross_origin
+
+from app_package.api import bp as bp_api
+from app_package.src import PreproDF, PopulationInfo, \
+                            AreaOnMapFile, DensityInfo, PopInfoForAPI
+
 import pandas as pd
 import geopandas as gpd
-
 import numpy as np
 import requests
 from shapely.geometry import Polygon
-#from app.api.errors import bad_request
-from app_package.src import PreproDF, PopulationInfo, \
-                            AreaOnMapFile, DensityInfo, PopInfoForAPI
-from flask_cors import CORS, cross_origin
+import os
+
 
 file_dir = 'app_package/src/population_data/'
+social_api = os.environ.get('SOCIAL_API')
+territories_api = os.environ.get('TERRITORY_API') 
+
 
 @bp_api.route('/here')
 @cross_origin()
 def index():
+    print('1',social_api)
+    print('2', os.environ.get('SOCIAL_API'))
     return 'hey from api'
 
 
@@ -34,54 +41,6 @@ def func(x):
         return f'{int(x1)}-{int(x2)}'
     else:
         return int(x1)
-    
-    
-@bp_api.route('/regions/pyramid_plot', methods=['GET'])
-@cross_origin()
-def pyramid_plot():
-    given_year = request.args.get('given_year', type = int)
-    territory_id = request.args.get('territory_id', type = int)
-    n_age_groups = request.args.get('n_age_groups', type = int, default=5)
-    
-    url = f'https://socdemo.lok-tech.com/indicators/2/{territory_id}/detailed'
-    r = requests.get(url, params={'year':given_year})
-    all_popul = r.json()
-    df = pd.DataFrame(all_popul[0]['data'])
-    # на всякий случай задаем возраста: 
-        # 1) все с интервалом 1 год
-        # 2) 100+ 
-        # 3) с интервалом 4 года для старших
-    df = df[(df['age_start']==df['age_end'])|(
-            df['age_start']==100)|(
-            (df['age_end']-df['age_start']==4)&(df['age_end'].isin([74,79,84,
-                                                                    89,94,99])))]
-    df['группа'] = df.iloc[:,:2].apply(func, 1)
-    df = df.set_index('группа').iloc[:,2:]
-    
-    # ставим года
-    df.columns = pd.MultiIndex.from_product([[given_year], ['Мужчины', 'Женщины']])
-    df.columns.set_names(['', "пол"], level=[0,1], inplace=True)
-    df.bfill(inplace=True)
-    
-    df = PreproDF.add_ages_70_to_100(df)
-    df.index = df.index.astype(str)
-    # уберем возрастные интервалы
-    df = df[df.index.isin([str(i) for i in range(0,101)])]
-    
-    df.index = df.index.astype(int)
-    df.sort_index(inplace=True)
-    
-    # выбираем нужный интервал возрастов
-    age_groups_df = PopulationInfo.age_groups(df, n_in_age_group=n_age_groups)
-
-    # рисуем график
-    bytes_obj  = PopulationInfo.plot_population_info(age_groups_df, 
-                                                     chosen_years=[given_year], 
-                                                     area_name='', 
-                                                     figsize=(10,13))
-    
-    return send_file(bytes_obj, download_name='pyr_plot.png',mimetype='image/png')
-
 
 
 @bp_api.route('/regions/pyramid_data', methods=['GET'])
@@ -91,7 +50,7 @@ def pyramid_data():
     territory_id = request.args.get('territory_id', type = int)
     n_age_groups = request.args.get('n_age_groups', type = int, default=5)
     
-    url = f'https://socdemo.lok-tech.com/indicators/2/{territory_id}/detailed'
+    url = social_api + f'indicators/2/{territory_id}/detailed'
     r = requests.get(url, params={'year':given_year})
     all_popul = r.json()
     df = pd.DataFrame(all_popul[0]['data'])
@@ -128,65 +87,6 @@ def pyramid_data():
     return age_groups_df[given_year].to_json(orient="split")
 
 
-@bp_api.route('/regions/migration_plot', methods=['GET'])
-@cross_origin()
-def migration_plot():
-    given_year = request.args.get('given_year', type = int)
-    territory_id = request.args.get('territory_id', type = int)
-    n_age_groups = request.args.get('n_age_groups', type = int, default=5)
-    
-    url = f'https://socdemo.lok-tech.com/indicators/2/{territory_id}/detailed'
-    
-    dfs = []
-    # нужны данные за два года
-    for year in [given_year-1, given_year]:
-        r = requests.get(url, params={'year':year})
-        all_popul = r.json()
-        
-        df = pd.DataFrame(all_popul[0]['data'])
-        # на всякий случай задаем возраста: 
-            # 1) все с интервалом 1 год
-            # 2) 100+ 
-            # 3) с интервалом 4 года для старших
-        df = df[(df['age_start']==df['age_end'])|(
-                df['age_start']==100)|(
-                (df['age_end']-df['age_start']==4)&(df['age_end'].isin([74,79,84,
-                                                                        89,94,99])))]
-        df['группа'] = df.iloc[:,:2].apply(func, 1)
-        df = df.set_index('группа').iloc[:,2:]
-        df.columns = ['Мужчины', 'Женщины']
-        dfs.append(df)
-        
-    df_full = pd.concat(dfs, axis=1, ignore_index=True) 
-    # ставим года
-    df_full.columns = pd.MultiIndex.from_tuples([(given_year-1, "Мужчины"),(given_year-1, 'Женщины'),
-                                                       (given_year, "Мужчины"),(given_year, 'Женщины')])
-    df_full.columns.set_names(['', "пол"], level=[0,1], inplace=True)
-    df_full.bfill(inplace=True)
-    
-    df_full = PreproDF.add_ages_70_to_100(df_full)
-    df_full.index = df_full.index.astype(str)
-    # уберем возрастные интервалы
-    df_full = df_full[df_full.index.isin([str(i) for i in range(0,101)])]
-    
-    df_full.index = df_full.index.astype(int)
-    df_full.sort_index(inplace=True)
-    
-    # вычисляем сальдо
-    difference_df = PopulationInfo.expected_vs_real(df_full,
-                                                    morrate_file=file_dir+'morrate.xlsx')
-    # группируем значения по возрастам
-    diff_grouped = PopulationInfo.group_by_age(difference_df, 
-                                               n_in_age_group=n_age_groups)
-    # рисуем разницы
-    bytes_obj = PopulationInfo.plot_difference_info(diff_grouped, 
-                                                    area_name = '', 
-                                                    chosen_year=given_year,
-                                                    figsize=(16,7))
-    
-    return send_file(bytes_obj, download_name='mig_plot.png',mimetype='image/png')
-
-
 @bp_api.route('/regions/migration_data', methods=['GET'])
 @cross_origin()
 def migration_data():
@@ -194,7 +94,7 @@ def migration_data():
     territory_id = request.args.get('territory_id', type = int)
     n_age_groups = request.args.get('n_age_groups', type = int, default=5)
     
-    url = f'https://socdemo.lok-tech.com/indicators/2/{territory_id}/detailed'
+    url = social_api + f'indicators/2/{territory_id}/detailed'
     
     dfs = []
     # нужны данные за два года
@@ -247,30 +147,6 @@ def create_polygon(coordinates):
     return Polygon(coordinates[0])
 
 
-# todo: return as a layer
-@bp_api.route('/regions/density_map', methods=['GET'])
-@cross_origin()
-def density_map():
-    okato_id = request.args.get('okato_id', type = str)
-    given_year = request.args.get('given_year', type = int)
-    area_name = okato_name_dict[okato_id]
-    #df = region_from_db(okato_id)
-    
-    # получаем данные из файла
-    d = AreaOnMapFile.get_area_from_file(geojson_filename='', area_name=okato_id,  
-                                         choose_from_files=True, 
-                                         area_files_path=geo_dir, 
-                                         temp_no_water_file=geo_dir+\
-                                         'Границы_только_МР_Границы_ЛО_Без_воды.geojson')
-    # считаем плотность населения
-    d_with_dnst = AreaOnMapFile.calculate_density(d, area_name=area_name, clm_area_name='name')
-    # рисуем плотность населения на карте
-    bytes_obj = AreaOnMapFile.plot_density(d_with_dnst, year=given_year, clm_with_name='name', 
-                                           area_name=area_name)
-    
-    return send_file(bytes_obj, download_name='map_plot.png',mimetype='image/png')
-
-
 @bp_api.route('/regions/density_data', methods=['GET'])
 @cross_origin()
 def density_data():
@@ -278,7 +154,7 @@ def density_data():
     given_year = request.args.get('given_year', type = int)
     
     # берем координаты территорий внутри заданной 
-    url = 'https://urban-api-107.idu.kanootoko.org/api/v1/territories'
+    url = territories_api + 'api/v1/territories'
     params = {'parent_id':parent_id,'get_all_levels':'false','page':'1','page_size':'50'}
     r = requests.get(url, params = params)
     places_df = pd.DataFrame(r.json()['results'])
@@ -288,7 +164,7 @@ def density_data():
     places_ids = places_df['territory_id'].values
     places_popul = []
     for place_id in places_ids:
-        url = f'https://socdemo.lok-tech.com/indicators/2/{place_id}'
+        url = social_api + f'indicators/2/{place_id}'
         r = requests.get(url)
         all_popul = r.json()
         # выбираем данные за нужный год
@@ -330,10 +206,6 @@ def density_data_full():
     
     full_df = DensityInfo.density_data_geojson(session=session, territory_id=parent_id, 
                                                  from_api=True)
-    '''
-    areas_df = areas_df[['name',f'{given_year}','S_km2',f'{given_year}_dnst',
-                         f'{given_year}_dnst_binned','geometry']]
-    '''
     return full_df.to_json()
 
 
@@ -343,7 +215,7 @@ def area_needs():
     territory_id = request.args.get('territory_id', type = int)
     given_year = request.args.get('given_year', type = int)
     
-    url = f'https://socdemo.lok-tech.com/indicators/2/{territory_id}/detailed'
+    url = social_api + f'indicators/2/{territory_id}/detailed'
     r = requests.get(url, params={'year':given_year})
     all_popul = r.json()
     df = pd.DataFrame(all_popul[0]['data'])
