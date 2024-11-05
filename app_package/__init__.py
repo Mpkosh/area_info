@@ -12,10 +12,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 #from app_package.swagger import swaggerui_blueprint as bp_swagger
 from flask_swagger_ui import get_swaggerui_blueprint
-import os
-from pathlib import Path
-from dotenv import load_dotenv
-from yaml import Loader, load
+
 
 
 db = SQLAlchemy()
@@ -39,7 +36,8 @@ def create_app(config_class=Config):
     
     swaggerui_blueprint = get_swaggerui_blueprint(
         SWAGGER_URL,
-        '/api/swagger.json'
+        '/api/swagger.json',
+        config={"layout":"BaseLayout"}
     )
     app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
     
