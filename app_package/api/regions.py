@@ -19,9 +19,11 @@ from shapely.geometry import Polygon
 import os
 
 
+
 file_dir = 'app_package/src/population_data/'
 social_api = os.environ.get('SOCIAL_API')
 territories_api = os.environ.get('TERRITORY_API') 
+
 
 
 @bp_api.route('/here')

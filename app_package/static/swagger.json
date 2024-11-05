@@ -1,0 +1,678 @@
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Population plots API",
+    "version": "1.0.0",
+    "description": "Get pyramid and migration plots for a given area and year"
+  },
+  "servers": [
+    {
+      "url": "https://area-info.onrender.com/api/regions/"
+    }
+  ],
+  "paths": {
+    "/main_info": {
+      "get": {
+        "tags": [
+          "Module 11"
+        ],
+        "summary": "Territory information (recent year): geometry, population, density",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/territory_id"
+          },
+          {
+            "$ref": "#/components/parameters/show_level"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/main_info_200"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/detailed_info": {
+      "get": {
+        "tags": [
+          "Module 11"
+        ],
+        "summary": "Territory detailed information (all years)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/territory_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/detailed_info_200"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pyramid_data": {
+      "get": {
+        "tags": [
+          "returns json"
+        ],
+        "summary": "Age-sex pyramid",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/territory_id"
+          },
+          {
+            "$ref": "#/components/parameters/given_year"
+          },
+          {
+            "$ref": "#/components/parameters/n_age_groups"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/pyramid_json_200"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pyramid_plot": {
+      "get": {
+        "tags": [
+          "returns png"
+        ],
+        "summary": "Age-sex pyramid",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/territory_id"
+          },
+          {
+            "$ref": "#/components/parameters/given_year"
+          },
+          {
+            "$ref": "#/components/parameters/n_age_groups"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/migration_data": {
+      "get": {
+        "tags": [
+          "returns json"
+        ],
+        "summary": "Migration estimate",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/territory_id"
+          },
+          {
+            "$ref": "#/components/parameters/given_year"
+          },
+          {
+            "$ref": "#/components/parameters/n_age_groups"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/migration_json_200"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/migration_plot": {
+      "get": {
+        "tags": [
+          "returns png"
+        ],
+        "summary": "Migration estimate",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/territory_id"
+          },
+          {
+            "$ref": "#/components/parameters/given_year"
+          },
+          {
+            "$ref": "#/components/parameters/n_age_groups"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/404"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/density_data": {
+      "get": {
+        "tags": [
+          "returns json"
+        ],
+        "summary": "Population density",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/parent_id"
+          },
+          {
+            "$ref": "#/components/parameters/given_year"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/density_json_200"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/area_needs": {
+      "get": {
+        "tags": [
+          "returns json"
+        ],
+        "summary": "Area needs as a weighted sum of population needs",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/territory_id"
+          },
+          {
+            "$ref": "#/components/parameters/given_year"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/area_needs_json_200"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pop_needs": {
+      "get": {
+        "tags": [
+          "returns json"
+        ],
+        "summary": "Population needs by age (expert opinion). Estimated percent for each category",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/pop_needs_json_200"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "parent_id": {
+        "name": "parent_id",
+        "in": "query",
+        "description": "Parent id of desired areas. *Example: 1*",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "territory_id": {
+        "name": "territory_id",
+        "in": "query",
+        "description": "Territory id. *Example: 116*",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "show_level": {
+        "name": "show_level",
+        "in": "query",
+        "description": "Territory levels to show. *Example: 1*",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "okato_id": {
+        "name": "okato_id",
+        "in": "query",
+        "description": "OKATO id of the area. *Example: 41206000000*",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "given_year": {
+        "name": "given_year",
+        "in": "query",
+        "description": "Data for a given year. *Example: 2020*",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "n_age_groups": {
+        "name": "n_age_groups",
+        "in": "query",
+        "description": "Number of ages in an age interval. *Defualt: 5*",
+        "required": false,
+        "schema": {
+          "type": "integer"
+        }
+      }
+    },
+    "schemas": {
+      "404": {
+        "title": "Sample",
+        "type": "object",
+        "properties": {
+          "placeholder": {
+            "type": "string",
+            "description": "Placeholder description"
+          }
+        }
+      },
+      "pyramid_json_200": {
+        "title": "Sample",
+        "type": "object",
+        "properties": {
+          "columns": {
+            "$ref": "#/components/schemas/columns"
+          },
+          "index": {
+            "$ref": "#/components/schemas/index"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "example": [
+              [
+                10192,
+                -10937
+              ],
+              [
+                13393,
+                -12231
+              ],
+              [
+                3816,
+                -1809
+              ]
+            ]
+          }
+        }
+      },
+      "migration_json_200": {
+        "title": "Sample",
+        "type": "object",
+        "properties": {
+          "columns": {
+            "$ref": "#/components/schemas/columns"
+          },
+          "index": {
+            "$ref": "#/components/schemas/index"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "example": [
+              [
+                256,
+                259
+              ],
+              [
+                -15,
+                41
+              ],
+              [
+                391,
+                310
+              ]
+            ]
+          }
+        }
+      },
+      "density_json_200": {
+        "title": "Sample",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "2020": {
+              "type": "number",
+              "example": 1786.1
+            },
+            "territory_id": {
+              "type": "integer"
+            },
+            "name": {
+              "type": "string",
+              "example": "Большеврудское"
+            },
+            "2020_dnst": {
+              "type": "number",
+              "example": 3.6
+            },
+            "binned": {
+              "type": "string",
+              "example": "0 -- 10"
+            },
+            "geometry": {
+              "example": ""
+            }
+          }
+        }
+      },
+      "main_info_200": {
+        "title": "Sample",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "territory_id": {
+              "type": "integer",
+              "example": 1
+            },
+            "name": {
+              "type": "string",
+              "example": "Ленинградская область"
+            },
+            "geometry": {
+              "example": ""
+            },
+            "density": {
+              "type": "number",
+              "example": 24.12
+            },
+            "pop_all": {
+              "type": "number",
+              "example": 2023767
+            },
+            "pop_younger": {
+              "type": "number",
+              "example": 303286
+            },
+            "pop_can_work": {
+              "type": "number",
+              "example": 1416751
+            },
+            "pop_older": {
+              "type": "number",
+              "example": 303730
+            },
+            "koeff_death": {
+              "type": "number",
+              "example": 0
+            },
+            "koeff_birth": {
+              "type": "number",
+              "example": 0
+            },
+            "koeff_migration": {
+              "type": "number",
+              "example": 0
+            }
+          }
+        }
+      },
+      "detailed_info_200": {
+        "title": "Sample",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "pop_df": {
+              "type": "object",
+              "example": [
+                "..."
+              ]
+            },
+            "groups_df": {
+              "type": "object",
+              "example": [
+                "..."
+              ]
+            },
+            "dynamic_pop_df": {
+              "type": "object",
+              "example": [
+                "..."
+              ]
+            },
+            "soc_pyramid_df": {
+              "type": "object",
+              "example": [
+                "..."
+              ]
+            },
+            "values_df": {
+              "type": "object",
+              "example": [
+                "..."
+              ]
+            }
+          }
+        }
+      },
+      "area_needs_json_200": {
+        "title": "Sample",
+        "type": "object",
+        "properties": {
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "Здравоохранение",
+              "Жилье",
+              "Питание",
+              "Транспорт",
+              "Социальные связи",
+              "Образование",
+              "Досуг",
+              "Волонтерство"
+            ]
+          },
+          "index": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "example": [
+              0
+            ]
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "example": [
+              [
+                0.1500906567,
+                0.1523598427,
+                0.116607779,
+                0.1289441921,
+                0.1566710245,
+                0.1071761415,
+                0.1229699438,
+                0.0651804198
+              ]
+            ]
+          }
+        }
+      },
+      "pop_needs_json_200": {
+        "title": "Sample",
+        "type": "object",
+        "properties": {
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "Возраст",
+              "Здравоохранение",
+              "Жилье",
+              "Питание",
+              "Транспорт",
+              "Социальные связи",
+              "Образование",
+              "Досуг",
+              "Волонтерство"
+            ]
+          },
+          "index": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "example": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8
+            ]
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "example": [
+              [
+                "0-6",
+                90,
+                60,
+                80,
+                40,
+                70,
+                50,
+                60,
+                10
+              ],
+              [
+                "7-11",
+                80,
+                50,
+                60,
+                50,
+                80,
+                80,
+                70,
+                20
+              ]
+            ]
+          }
+        }
+      },
+      "columns": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "minItems": 2,
+        "maxItems": 2,
+        "example": [
+          "Женщины",
+          "Мужчины"
+        ]
+      },
+      "index": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "example": [
+          "0-4",
+          "5-9",
+          "10-14"
+        ]
+      }
+    }
+  }
+}

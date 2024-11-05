@@ -12,10 +12,6 @@ from app_package.main import bp as bp_main
 def index():
     return 'hey'
     
-@bp_main.route('/docs')
-def docs():
-    return render_template('docs.html')
-    
 # по умолчанию только GET 
 @bp_main.route('/region_data')
 def region_data():
