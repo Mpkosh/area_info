@@ -5,14 +5,14 @@ Created on Tue May 14 13:02:42 2024
 @author: user
 """
 
-from flask import Flask, send_from_directory, send_file
+from flask import Flask, send_from_directory, send_file, redirect
 #from flask_swagger import swagger
 from config_f import Config
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 #from app_package.swagger import swaggerui_blueprint as bp_swagger
 from flask_swagger_ui import get_swaggerui_blueprint
-
+from flask_cors import CORS, cross_origin
 
 
 db = SQLAlchemy()
@@ -30,18 +30,28 @@ def create_app(config_class=Config):
     SWAGGER_URL = '/api/docs'  # URL for exposing Swagger UI (without trailing '/')
     
     @app.route('/api/swagger.json')
+    @cross_origin()
     def swagger_json():
         # Read before use: http://flask.pocoo.org/docs/0.12/api/#flask.send_file
         return send_file('static/swagger.json')  
     
+    @app.route('/docs')
+    @app.route('/docs/')
+    @app.route('/')
+    @cross_origin()
+    def main_to_docs():
+        return redirect("/api/docs", code=302)
+    
     swaggerui_blueprint = get_swaggerui_blueprint(
         SWAGGER_URL,
         '/api/swagger.json',
-        config={"layout":"BaseLayout"}
+        config={"layout":"BaseLayout",
+                "app_name": "Population and Territory API"}
     )
+    CORS(swaggerui_blueprint)
     app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
     
-
+    
     
     # blueprint registration
     from app_package.main import bp as bp_main

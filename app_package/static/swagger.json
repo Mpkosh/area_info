@@ -1,13 +1,14 @@
 {
   "openapi": "3.0.2",
   "info": {
-    "title": "Population plots API",
+    "title": "Population and Territory API",
     "version": "1.0.0",
-    "description": "Get pyramid and migration plots for a given area and year"
+    "description": "Get Population and Territory information for a given area and year"
   },
   "servers": [
-    {
-      "url": "https://area-info.onrender.com/api/regions/"
+    {"url": "http://10.32.1.47:5000/api/regions/", "description":"main server"
+    },
+    {"url": "https://area-info.onrender.com/api/regions/", "description":"just in case"
     }
   ],
   "paths": {
@@ -64,6 +65,59 @@
         }
       }
     },
+    "/density_data_full": {
+      "get": {
+        "tags": [
+          "returns geojson"
+        ],
+        "summary": "Population density by parent id; children with separate geometry",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/parent_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/density_data_full_200"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/density_data": {
+      "get": {
+        "tags": [
+          "returns geojson"
+        ],
+        "summary": "Population density",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/parent_id"
+          },
+          {
+            "$ref": "#/components/parameters/given_year"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/density_json_200"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/pyramid_data": {
       "get": {
         "tags": [
@@ -95,38 +149,6 @@
         }
       }
     },
-    "/pyramid_plot": {
-      "get": {
-        "tags": [
-          "returns png"
-        ],
-        "summary": "Age-sex pyramid",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/territory_id"
-          },
-          {
-            "$ref": "#/components/parameters/given_year"
-          },
-          {
-            "$ref": "#/components/parameters/n_age_groups"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful response",
-            "content": {
-              "application/png": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/migration_data": {
       "get": {
         "tags": [
@@ -151,76 +173,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/migration_json_200"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/migration_plot": {
-      "get": {
-        "tags": [
-          "returns png"
-        ],
-        "summary": "Migration estimate",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/territory_id"
-          },
-          {
-            "$ref": "#/components/parameters/given_year"
-          },
-          {
-            "$ref": "#/components/parameters/n_age_groups"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful response",
-            "content": {
-              "application/png": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not found response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/404"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/density_data": {
-      "get": {
-        "tags": [
-          "returns json"
-        ],
-        "summary": "Population density",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/parent_id"
-          },
-          {
-            "$ref": "#/components/parameters/given_year"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/density_json_200"
                 }
               }
             }
@@ -282,7 +234,7 @@
       "parent_id": {
         "name": "parent_id",
         "in": "query",
-        "description": "Parent id of desired areas. *Example: 1*",
+        "description": "Parent id of desired areas. *Example: 34*",
         "required": true,
         "schema": {
           "type": "integer"
@@ -291,7 +243,7 @@
       "territory_id": {
         "name": "territory_id",
         "in": "query",
-        "description": "Territory id. *Example: 116*",
+        "description": "Territory id. *Example: 34*",
         "required": true,
         "schema": {
           "type": "integer"
@@ -300,7 +252,7 @@
       "show_level": {
         "name": "show_level",
         "in": "query",
-        "description": "Territory levels to show. *Example: 1*",
+        "description": "Territory levels to show. *Example: 2*",
         "required": true,
         "schema": {
           "type": "integer"
@@ -439,6 +391,59 @@
             }
           }
         }
+      },
+      "density_data_full_200": {
+        "title": "Sample",
+        "type": "array",
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "2020": {
+                "type": "number"
+              },
+              "territory_id": {
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              },
+              "2020_dnst": {
+                "type": "number"
+              },
+              "2020_dnst_binned": {
+                "type": "string"
+              },
+              "geometry_villages": {
+                "type": "string"
+              },
+              "geometry": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "example": [
+          {
+            "2023": 50211,
+            "territory_id": 10,
+            "name": "Волосовский",
+            "2023_dnst": 18.58,
+            "2023_dnst_binned": "10 - 100",
+            "geometry_villages": "",
+            "geometry": ""
+          },
+          {
+            "2023": 59877,
+            "territory_id": 97,
+            "name": "Киришский",
+            "2023_dnst": 19.54,
+            "2023_dnst_binned": "10 - 100",
+            "geometry_villages": "",
+            "geometry": ""
+          }
+        ]
       },
       "main_info_200": {
         "title": "Sample",

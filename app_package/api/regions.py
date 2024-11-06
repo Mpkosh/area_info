@@ -4,7 +4,7 @@ Created on Wed May 15 14:11:49 2024
 
 @author: user
 """
-from flask import request, send_file
+from flask import request, send_file, redirect
 from flask_cors import CORS, cross_origin
 
 from app_package.api import bp as bp_api
@@ -23,6 +23,12 @@ import os
 file_dir = 'app_package/src/population_data/'
 social_api = os.environ.get('SOCIAL_API')
 territories_api = os.environ.get('TERRITORY_API') 
+
+
+@bp_api.route('/')
+@cross_origin()
+def zero_to_docs():
+    return redirect("/api/docs", code=302)
 
 
 
