@@ -65,7 +65,7 @@ def get_S_and_dnst_children(session, territory_id=34):
     # здесь для ЛО нет площади
     # по этому запросу есть нужная площадь без воды.
     # + есть плотность за посл. год, но посчитана по площади C водой, поэтому считаем сами
-    url= territories_api + f'api/v2/territories_without_geometry?parent_id={territory_id}&get_all_levels=false&ordering=asc&size=1000'
+    url= territories_api + f'api/v2/territories_without_geometry?parent_id={territory_id}&get_all_levels=false&ordering=asc&page_size=1000'
     r = session.get(url)
     res = pd.DataFrame(r.json())
     res = pd.json_normalize(res['results'], max_level=1)
@@ -84,7 +84,7 @@ def children_pop_dnst(session, territory_id, pop_and_dnst=True):
     # здесь для НП нет инф-ии о численности и площади
     # для ЛО и territory_type_id=3 показывает только Сосновоборский
     # для ЛО и territory_type_id=4 показывает []
-    url=territories_api + f'api/v2/territories?parent_id={territory_id}&get_all_levels=false&ordering=asc&size=1000'
+    url=territories_api + f'api/v2/territories?parent_id={territory_id}&get_all_levels=false&ordering=asc&page_size=1000'
     r = session.get(url).json()
     if r['results']:
         res = pd.DataFrame(r)

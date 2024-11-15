@@ -13,29 +13,33 @@ territories_api = os.environ.get('TERRITORY_API')
 
 def get_all_children_data(session, territory_id=34, from_api=True):
     # все населенные пункты, ГП, СП, входящие в заданный район
-    url = territories_api + f'api/v1/all_territories?parent_id={territory_id}&get_all_levels=True'
-
+    get_all_levels_str = 'true'
+    url = territories_api + f'api/v2/territories?parent_id={territory_id}&get_all_levels={get_all_levels_str}&page_size=1000'
+    #url = territories_api + f'api/v1/all_territories?parent_id={territory_id}&get_all_levels=True'
     r = session.get(url)
-    # раскрываем json
     children = pd.DataFrame(r.json())
-    resn_geom = pd.json_normalize(children['features'], max_level=0)
+    # раскрываем json
+    res = pd.json_normalize(children['results'], max_level=0)
+    res_vill = pd.concat([res.drop('parent', axis='columns'), 
+                          pd.json_normalize(res.parent).add_prefix('parent.')],
+                          axis=1)
     # меняем тип колонки с геометрией
-    res_vill = pd.json_normalize(resn_geom['properties'], max_level=1)[['territory_id','parent_id','name','level']]
+    for_use = res_vill.copy()
     all_children = gpd.GeoDataFrame(res_vill, 
-                                     geometry=[shape(d) for d in resn_geom.pop("geometry")])
+                         geometry=[shape(d) for d in for_use.pop("geometry")])
+
     return all_children
 
 
-def clip_all_children(all_children, dissolve_clm='parent_id'):
-    #parent.name -- old dissolve_clm
+def clip_all_children(all_children):
+    
     a = all_children.copy()
     # объединим, чтобы для каждого ГП/СП был один полигон
-    buff = a[a.level==5].dissolve(by=dissolve_clm).set_crs(epsg=4326)
+    buff = a[a.level==5].dissolve(by='parent.name').set_crs(epsg=4326)
     
     # вручную режем по границе КАЖДОГО ГП/СП, 
     # тк если на втором месте в .clip() - датафрейм, то режет по его общей внешней границе
-    # name -- old sort vaues clm
-    gp_sp_orig = a[a.level==4].set_crs(epsg=4326).sort_values(by='territory_id')
+    gp_sp_orig = a[a.level==4].set_crs(epsg=4326).sort_values(by='name')
     
     np_clipped = pd.DataFrame()
     for i in range(buff.shape[0]):
@@ -118,12 +122,13 @@ def get_density_data(session, territory_id=34, from_api=False):
     # добавляем интервалы плотности на каждый год
     df[binned_cols] = df[dnst_cols].apply(pd.cut, bins=[0,10,100,500,1000,5000,100000], 
                                           labels=labels_ordered)
+
     #    Данные о всех населенных пунктах
     all_children = get_all_children_data(session, territory_id, from_api)
     # вручную режем по границе КАЖДОГО ГП/СП
     np_clipped = clip_all_children(all_children)
-    vills_in_area = np_clipped.reset_index().set_crs(epsg=4326)[['parent_id','geometry']]
-    fin_vills_full = df.merge(vills_in_area, left_on='territory_id', right_on='parent_id')
+    vills_in_area = np_clipped.reset_index().set_crs(epsg=4326)[['parent.name','geometry']]
+    fin_vills_full = df.merge(vills_in_area, left_on='name', right_on='parent.name')
     
     return df, fin_vills_full, all_children
 
@@ -133,7 +138,7 @@ def density_data_geojson(session, territory_id=34, from_api=False):
     _, fin_vills_full, _ = get_density_data(session, territory_id=territory_id, 
                                             from_api=from_api)
 
-    full_df = fin_vills_full.drop(columns=['parent_id']).rename(columns={'geometry_x':'geometry_areas',
+    full_df = fin_vills_full.drop(columns=['parent.name']).rename(columns={'geometry_x':'geometry_areas',
                                                                           'geometry_y':'geometry_villages'}
                                                                  ).set_geometry('geometry_areas'
                                                                                ).set_index('territory_id')
