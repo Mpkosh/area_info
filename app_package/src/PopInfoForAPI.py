@@ -274,7 +274,7 @@ def barebones_for_info(territory_id, session, show_level):
     # если просят показать уровень выше заданной тер-рии -- ошибка
     # (Ex: передали Романовское СП, а просят показать уровень Всев.района)
     else:
-        return '!Stop the madness! Show_level should be less or equal to territory level'
+       raise ValueError(f'Show level (given: {show_level}) must be >= territory type (given: {territory_type})')
        
     return r_main, territory_type, geom
 

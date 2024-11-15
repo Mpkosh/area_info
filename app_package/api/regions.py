@@ -9,7 +9,8 @@ from flask_cors import CORS, cross_origin
 
 from app_package.api import bp as bp_api
 from app_package.src import PreproDF, PopulationInfo, \
-                            AreaOnMapFile, DensityInfo, PopInfoForAPI
+                            AreaOnMapFile, DensityInfo, \
+                            PopInfoForAPI, MigInfoForAPI
 
 import pandas as pd
 import geopandas as gpd
@@ -269,6 +270,7 @@ def pop_needs():
     df = pd.read_csv(file_dir+'pop_needs.csv', index_col=0)
     return df.to_json(orient="split")
 
+#____________ OFFICIAL F11
 
 @bp_api.route('/regions/main_info', methods=['GET'])
 @cross_origin()
@@ -290,3 +292,15 @@ def detailed_info():
     
     return [pop_df.to_json(), groups_df.to_json(), dynamic_pop_df.to_json(),
             soc_pyramid_df.to_json(), values_df.to_json()]
+
+#____________ OFFICIAL F21
+
+@bp_api.route('/migrations/main_info', methods=['GET'])
+@cross_origin()
+def mig_main():
+    territory_id = request.args.get('territory_id', type = int)
+    show_level = request.args.get('show_level', type = int)
+    
+    result = MigInfoForAPI.info(territory_id=territory_id, 
+                                         show_level=show_level)
+    return result.set_geometry('geometry').to_json()
