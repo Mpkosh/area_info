@@ -1,15 +1,14 @@
 import requests
 import pandas as pd
 import geopandas as gpd
-from app_package.src import PreproDF, DemForecast
 import numpy as np
 #from tqdm.notebook import tqdm
 import os
+from app_package.src import PreproDF, DemForecast
 
 
 social_api = os.environ.get('SOCIAL_API')
-territories_api = os.environ.get('TERRITORY_API') 
-
+terr_api = os.environ.get('TERRITORY_API')
 
 def to_interval(x):
     x1, x2 = x.iloc[0], x.iloc[1]
@@ -60,102 +59,295 @@ def prepro_from_api(df_from_json, given_years=[2019,2020], unpack_after_70=False
     return df
 
 
-# --
-def get_S_and_dnst_children(session, territory_id=34):
-    # здесь для ЛО нет площади
-    # по этому запросу есть нужная площадь без воды.
-    # + есть плотность за посл. год, но посчитана по площади C водой, поэтому считаем сами
-    url= territories_api + f'api/v2/territories_without_geometry?parent_id={territory_id}&get_all_levels=false&ordering=asc&page_size=1000'
-    r = session.get(url)
-    res = pd.DataFrame(r.json())
-    res = pd.json_normalize(res['results'], max_level=1)
+class Territory():
     
-    res = res[['territory_id','properties.Площадь территории, кв. км.',
-               'properties.Численность населения']]
-    res = res.rename(columns={'properties.Площадь территории, кв. км.':'S_km2',
-                             'properties.Численность населения':'population'})
-    # считаем плотность населения
-    res['population_dnst'] = res['population'].div(res['S_km2'], axis=0).round(2)
-    return res
+    def __init__(self, territory_id=34):
+        self.territory_id = territory_id
+        self.df = pd.DataFrame([])
+        self.df['territory_id'] = [self.territory_id]
+        self.children = []
+        self.parent = 0
+        
+        
+def info(territory_id=34, show_level=3):
+    '''
+    Основные характеристики населения:
 
+    Параметры:
+     - territory_id: id территории
+     - show_level: в каком делении выводить данные (territory_type_id в API)
+         (1 - регион, 2 - МО (Всев.район), 3 - Поселение (ГП и СП), 4 - населенные пункты)
+    
+    Вывод: geojson
+    - geometry: геометрия территории
+    - pop_all: численность общая
+      pop_younger: 0-15 лет включительно
+      pop_can_work: 16-60 лет включительно
+      pop_older: 61-100 лет
+    - демографические показатели (коэфф-ты смертности, рожд-ти, миграции)
+    - density: плотность населения.
+    
+    '''
+    session = requests.Session()
+    current_territory = Territory(territory_id)
+    main_info(session, current_territory, show_level)
+    
+    if show_level < current_territory.territory_type:
+        raise ValueError(f'Show level (given: {show_level}) must be >= territory type (given: {current_territory.territory_type})')
+        
+    n_children = show_level - current_territory.territory_type
+    terr_classes = [current_territory]
+    terr_ids = current_territory.df['territory_id'].values
+    # если нужен уровень детальнее
+    for i in range(n_children):
+        for ter_id, ter_class in zip(terr_ids, terr_classes):
+            get_children(session, ter_id, ter_class)
+        # новый набор для итерации    
+        terr_classes = [child for one_class in terr_classes for child in one_class.children]
+        # новые id тер-рий
+        terr_ids = [one_class.territory_id for one_class in terr_classes]    
+    
+    # all final children in <terr_classes>    
+    fin_df = pd.DataFrame([])
+    fin_df['territory_id'] = [cl.territory_id for cl in terr_classes]
+    fin_df['oktmo'] = [cl.oktmo for cl in terr_classes]
+    fin_df['name'] = [cl.name for cl in terr_classes]
+    fin_df['geometry'] = [cl.geometry for cl in terr_classes]
+    
+    fin_df[['pop_all','density']] = [0,0]
+    fin_df['pop_all'] = [cl.pop_all for cl in terr_classes]
+    fin_df['density'] = [cl.density for cl in terr_classes]
+    
+    change = True
+    if show_level==4:
+        # восполняем тем, что есть; на всякий случай сортируем
+        # print('Заполнение колонки pop_all с файла towns.geojson')
+        towns = gpd.read_file('../towns.geojson')
+        towns = towns.set_index('territory_id').loc[fin_df.territory_id].reset_index()
+        fin_df['pop_all'] = towns[towns.territory_id.isin(fin_df.territory_id)]['population'].values
+        fin_df['pop_all'] = fin_df['pop_all'].fillna(0)
+        
+        for child in terr_classes:
+            child.pop_all = fin_df[fin_df.territory_id==child.territory_id]['pop_all'].values[0]
+            change = False
+            #print(child.territory_id, child.name, pop_for_children.loc[child.territory_id])
+    
+    pyramid_info(session, terr_classes)
+    if change:
+        fin_df['pop_all'] = [cl.pop_all for cl in terr_classes]
+        
+    fin_df['pop_younger'] = [cl.pop_younger for cl in terr_classes]
+    fin_df['pop_can_work'] = [cl.pop_can_work for cl in terr_classes]
+    fin_df['pop_older'] = [cl.pop_older for cl in terr_classes]
+    
+    # у ЛО нет октмо в БД
+    with pd.option_context("future.no_silent_downcasting", True):
+        fin_df['oktmo'] = fin_df['oktmo'].fillna(0)
+    
+    # ____ Если данных колонок нет, то добавляем и ставим нули
+    cols = ['density','pop_all','pop_younger','pop_can_work','pop_older',
+            'koeff_death','koeff_birth','koeff_migration']
+    fin_df = fin_df.reindex(fin_df.columns.union(cols, sort=False), axis=1, fill_value=0)
+    fin_df[['pop_all','pop_younger','pop_can_work','pop_older']] = \
+        fin_df[['pop_all','pop_younger','pop_can_work','pop_older']].astype(int)
+    cols_order = ['territory_id','name','geometry']+cols
+    return fin_df[cols_order].sort_values('territory_id')
+    
+    
+def main_info(session, current_territory, show_level):
+    # ____ Узнаем уровень территории
+    try:
+        url = terr_api + f'api/v1/territory/{current_territory.territory_id}'
+        r_main = session.get(url).json()
+        current_territory.territory_type = r_main['territory_type']['territory_type_id']
+        current_territory.name = r_main['name']
+        current_territory.oktmo = r_main['oktmo_code']
+        geom_data = gpd.GeoDataFrame.from_features([r_main])[['geometry']]
+    except:
+        raise requests.exceptions.RequestException(f'Problem with {url}')
 
+    current_territory.geometry = geom_data.values[0][0]
+    current_territory.parent = Territory(r_main['parent']['id'])
+    
+    if show_level == current_territory.territory_type:
+        current_territory.df['oktmo'] = current_territory.oktmo
+        current_territory.df['geometry'] = geom_data
+        current_territory.df['name'] = current_territory.name
+        
+        last_pop_and_dnst(session, current_territory, dnst=True, both=True)
+        
+
+def pyramid_info(session, terr_classes):
+    for child in terr_classes:
+        chosen_class = child
+        # если у ребенка не может быть пирамиды, то постепенно проверяем его родителя
+        if child.territory_type <= 2:
+            ter_id_for_pyramid = child.territory_id
+        else:
+            for i in range(child.territory_type-2):
+                ter_id_for_pyramid = chosen_class.parent.territory_id
+                chosen_class = child.parent
+        
+        # заглушка для ЛО        
+        if child.territory_type == 1:
+            ter_id_for_pyramid = 34
+            
+        #print(f'pyramid from {chosen_class.name}')        
+        pop_df = get_detailed_pop(session, ter_id_for_pyramid, False)
+        
+        if pop_df.shape[0]:
+            p_all, p_y, p_w, p_o = groups_3(pop_df)
+            # если брали пирамиду самой территории
+            if ter_id_for_pyramid == child.territory_id:
+                child.pop_all, child.pop_younger,\
+                    child.pop_can_work,child.pop_older = p_all, p_y, p_w, p_o
+
+            # если это пирамида родителя, то раскидываем по вероятностям
+            else:
+                parent_data = np.array([p_all, p_y, p_w, p_o])
+                probs = parent_data/parent_data.max()
+                
+                np.random.seed(27) 
+                child.pop_younger, child.pop_can_work, \
+                    child.pop_older = np.random.multinomial(child.pop_all, probs[1:])
+        else:
+            child.pop_younger,child.pop_can_work,child.pop_older = [0,0,0]
+            
+        
+def child_to_class(x, parent_class):
+    child = Territory(x['territory_id'])
+    child.name = x['name']
+    child.oktmo = x['oktmo_code']
+    child.df['name'] = child.name
+    child.geometry = x['geometry']
+    child.territory_type = parent_class.territory_type+1
+    
+    if 'pop_all' in x.index:
+        child.pop_all = x['pop_all']
+    else:
+        child.pop_all = 0
+        
+    if 'density' in x.index:
+        child.density = x['density']
+    else:
+        child.density = 0
+        
+    child.parent = parent_class
+    parent_class.children.append(child)        
+
+    
 def children_pop_dnst(session, territory_id, pop_and_dnst=True):
     # здесь для ЛО нет площади
     # здесь для НП нет инф-ии о численности и площади
     # для ЛО и territory_type_id=3 показывает только Сосновоборский
     # для ЛО и territory_type_id=4 показывает []
-    url=territories_api + f'api/v2/territories?parent_id={territory_id}&get_all_levels=false&ordering=asc&page_size=1000'
-    r = session.get(url).json()
-    if r['results']:
-        res = pd.DataFrame(r)
+    try:
+        url = terr_api + 'api/v2/territories'
+        params = {'parent_id':territory_id,'get_all_levels':'false','cities_only':'false','page_size':'1000'}
+        r = session.get(url, params=params)
+        res = pd.DataFrame(r.json()) 
         res = pd.json_normalize(res['results'], max_level=0)
-        fin = res[['territory_id','name']].copy()
-        with_geom = gpd.GeoDataFrame.from_features(r['results'])
+        fin = res[['territory_id','name','oktmo_code']].copy()
+        with_geom = gpd.GeoDataFrame.from_features(r.json()['results'])
         fin['geometry'] = with_geom['geometry']
+    except:
+        raise requests.exceptions.RequestException(f'Problem with {r.url}')
+        
+    if pop_and_dnst:
+        pop_clm = 'Численность населения'
+        s_clm = 'Площадь территории, кв. км.'
+        if (pop_clm in with_geom.columns)&(s_clm in with_geom.columns):
+            pop_and_S = with_geom[['Численность населения',
+                                   'Площадь территории, кв. км.']]
+            fin['pop_all'] = pop_and_S['Численность населения']
+            fin['density'] = round(pop_and_S['Численность населения']/pop_and_S['Площадь территории, кв. км.'], 2)
+    else:
+        fin['pop_all'] = 0
+        fin['density'] = 0
 
-        if pop_and_dnst:
-            pop_clm = 'Численность населения'
-            s_clm = 'Площадь территории, кв. км.'
-            if (pop_clm in with_geom.columns)&(s_clm in with_geom.columns):
-                pop_and_S = with_geom[['Численность населения',
-                                       'Площадь территории, кв. км.']]
-                fin['pop_all'] = pop_and_S['Численность населения']
-                fin['density'] = round(pop_and_S['Численность населения']/pop_and_S['Площадь территории, кв. км.'], 2)
-            else:
-                fin['pop_all'] = 0
-                fin['density'] = 0
-
-        return fin
+    return fin
+    
+    return pd.DataFrame([])
 
 
 def children_pop_dnst_LO(session, territory_id):
-    url= territories_api + f'api/v1/territory/indicator_values?parent_id={territory_id}&indicator_ids=1%2C4&last_only=True'
-    r = session.get(url).json()
-    with_geom = gpd.GeoDataFrame.from_features(r['features']).set_crs(epsg=4326)
-    fin = with_geom[['territory_id','name','geometry']]
-
-    qq = pd.json_normalize(with_geom['indicators'])
-    qq.columns = ['pop','S']
-
-    pop_info = pd.json_normalize(qq['pop'])['value']
-    pop_info.name = 'pop_all'
-    S_info = pd.json_normalize(qq['S']).fillna(0)['value']
-    # если где-то не указана площадь -- считаем сами
-    zero_s_idx = S_info[S_info==0].index
-    S_info.loc[zero_s_idx] = fin.loc[zero_s_idx, 
-                                     'geometry'].to_crs(epsg=6933).area/10**6
+    # но здесь нет октмо 
+    try:
+        url= terr_api + 'api/v1/territory/indicator_values'
+        params = {'parent_id':territory_id,'indicator_ids':'1,4','last_only':'true'}
+        r = session.get(url, params=params)
+        with_geom = gpd.GeoDataFrame.from_features(r.json()['features']).set_crs(epsg=4326)
+        fin = with_geom[['territory_id','name','geometry']]
+        fin['oktmo_code'] = 0
     
+        qq = pd.json_normalize(with_geom['indicators'])
+        qq.columns = ['pop','S']
+    
+        pop_info = pd.json_normalize(qq['pop'])['value']
+        pop_info.name = 'pop_all'
+        
+        S_info = pd.json_normalize(qq['S']).fillna(0)['value']
+        # если где-то не указана площадь -- считаем сами
+        zero_s_idx = S_info[S_info==0].index
+        S_info.loc[zero_s_idx] = fin.loc[zero_s_idx, 
+                                         'geometry'].to_crs(epsg=6933).area/10**6
+    except:
+        raise requests.exceptions.RequestException(f'Problem with {r.url}')
+        
     density = round(pop_info/S_info,2)
     density.name = 'density'
     ff = pd.concat([fin,pop_info,density], axis=1)
 
-    return ff
+    return ff    
+    
+    
+def get_children(session, parent_id, parent_class):
 
-
-def last_pop_and_dnst(session, territory_id, dnst=False, both=False):
+    if parent_class.territory_type == 1:
+        # для ЛО у детей нет площади у 193
+        fin = children_pop_dnst_LO(session, parent_class.territory_id)
+    elif parent_class.territory_type == 3:
+        # для НП (show_level=4) нет инф-ии о численности и площади
+        fin = children_pop_dnst(session, parent_class.territory_id, pop_and_dnst=False)
+    else:
+        fin = children_pop_dnst(session, parent_class.territory_id, pop_and_dnst=True)
+    if fin.shape[0]:       
+        fin.apply(child_to_class, parent_class=parent_class, axis=1)
+    
+        
+        
+def last_pop_and_dnst(session, current_territory, dnst=False, both=False):
     # площадь без воды и численность
-    url= territories_api + f'api/v1/territory/{territory_id}/indicator_values?indicator_ids=4%2C%201&last_only=True'
-    r = session.get(url)
-    r = pd.DataFrame(r.json())
-    indicators = pd.json_normalize(r['indicator'])
-
-    #pop_ind = indicators[indicators['name_full']=='Численность населения'].index
-    #pop_value = r.iloc[pop_ind].sort_values('date_value', ascending=False).iloc[0]['value']
-    pop_ind = indicators[indicators['name_full']=='Численность населения'].index[0]
-    pop_value = r.iloc[pop_ind]['value']
+    try:
+        url= terr_api + f'api/v1/territory/{current_territory.territory_id}/indicator_values'
+        params = {'indicator_ids':'1,4','last_only':'true'}
+        r = session.get(url, params=params)
+        res = pd.DataFrame(r.json())
+        indicators = pd.json_normalize(res['indicator'])
+        
+        pop_ind = indicators[indicators['name_full']=='Численность населения'].index[0]
+        pop_value = res.iloc[pop_ind]['value']
+    except:
+        raise requests.exceptions.RequestException(f'Problem with {r.url}')
     
     if dnst:
-        S_ind = indicators[indicators['name_full']=='Площадь территории'].index[0]
-        S_value = r.iloc[S_ind]['value']
+        try:
+            S_ind = indicators[indicators['name_full']=='Площадь территории'].index[0]
+            S_value = res.iloc[S_ind]['value']
+        except IndexError:
+            geom = gpd.GeoSeries(current_territory.geometry).set_crs(epsg=4326)
+            S_value = (geom.to_crs(epsg=6933).area/10**6).values[0]
+        
         dnst = round(pop_value/S_value, 2) 
         if both:
-            return pop_value, dnst 
+            current_territory.pop_all = pop_value
+            current_territory.density = dnst
         else:
-            return dnst
+            current_territory.density = dnst
     else:
-        return pop_value
-    
-
+        current_territory.pop_all = pop_value
+        
+        
 def get_detailed_pop(session, territory_id, unpack_after_70, last_year=True):
     url = social_api + f'indicators/2/{territory_id}/detailed'
     r = session.get(url)
@@ -183,189 +375,8 @@ def groups_3(x):
     return [pop_all, pop_younger, pop_can_work, pop_older]
 
 
-def get_second_children(session, first_children, child_level):
-    all_second_children = gpd.GeoDataFrame()
-    # для каждого ребенка берем вторых детей
-    for main_id in first_children.territory_id.values:
-        if child_level < 4:
-            second_children = children_pop_dnst(session, main_id, pop_and_dnst=True)
-        else:
-            second_children = children_pop_dnst(session, main_id, pop_and_dnst=False)
-        #second_children['main_id'] = main_id
-        all_second_children = pd.concat([all_second_children,
-                                         gpd.GeoDataFrame(second_children)])
-    
-    return all_second_children
-
-
-def fill_in_by_34(session, territory_id, geom):
-    if geom['pop_all'].sum == 0:
-        geom['pop_all'] = last_pop_and_dnst(session=session,
-                                            territory_id=territory_id,
-                                            dnst=False)
-    # раскидываем числа с учетом вероятностей Всеволожского
-    np.random.seed(27) 
-    geom[['pop_younger','pop_can_work','pop_older']
-        ] = geom['pop_all'].apply(
-        lambda x: np.random.multinomial(x,[0.15,0.7,0.15])).to_list()
-    
-    return geom
-
-
-def barebones_for_info(territory_id, session, show_level):
-    # ____ Узнаем уровень территории
-    url= territories_api + f'api/v1/territory/{territory_id}'
-    r_main = session.get(url).json()
-    territory_type = r_main['territory_type']['territory_type_id']
-
-    # численность будем брать не здесь (r_main), тк в .../api/v1/territory/{territory_id} 
-    # нет привязки численности к дате, лучше уверенно взять самую новую инф-ию
-    # ____ Делаем костяк нашего geojson'а
-    # если нужен уровень детальнее
-    if show_level > territory_type:    
-        # собираем данные первых детей
-        # для ЛО у детей нет площади у 193
-        if territory_type==1:
-            geom = children_pop_dnst_LO(session, territory_id)
-        elif (show_level-territory_type==1)&(show_level==4):
-            # для НП (show_level=4) нет инф-ии о численности и площади
-            geom = children_pop_dnst(session, territory_id, pop_and_dnst=False)
-        else:
-            # отдаем геометрию детей с плотностью и численностью
-            geom = children_pop_dnst(session, territory_id)
-
-        # если разница в два, то дополнительно берем вторых детей
-        if show_level - territory_type >= 2:
-            geom = get_second_children(session, geom,  territory_type+2)
-            # если разница в три, то дополнительно берем третих детей
-            if show_level - territory_type == 3:
-                geom = get_second_children(session, geom,  territory_type+3)
-            
-        # для НП (show_level=4) нет инф-ии о численности и площади
-        if show_level==4:
-            # поэтому восполняем тем, что есть; на всякий случай сортируем
-            # print('Заполнение колонки pop_all с файла towns.geojson')
-            towns = gpd.read_file('app_package/src/towns.geojson').sort_values(by='territory_id')
-            geom = geom.sort_values(by='territory_id')
-            geom['pop_all'] = towns[towns.territory_id.isin(geom.territory_id)]['population'].values
-            geom['pop_all'] = geom['pop_all'].fillna(0)
-    
-    # если НЕ нужен уровень детальнее
-    elif show_level == territory_type:
-        # отсюда берем только геометрию
-        geom = gpd.GeoDataFrame.from_features([r_main])[['geometry']]
-        geom['territory_id'] = territory_id
-        geom['name'] = r_main['name']
-        
-        if show_level<=2:
-            # (38 'Рахьинское ГП') здесь НЕ указана площадь; в ф-ии dnst=True, both=True
-            # для territory_type=2 площадь отсюда:
-            geom[['pop_all','density']] = last_pop_and_dnst(session=session, territory_id=territory_id,
-                                                            dnst=True, both=True)
-        else:
-            geom['pop_all'] = last_pop_and_dnst(session=session, territory_id=territory_id,
-                                                dnst=False)
-            # (34 'Всев.район') геометрия с водой, т.е. площадь не посчитать; площади и плотности нет
-            # (38 'Рахьинское ГП') здесь указана площадь, плотность неправильная
-            # для territory_type=3 площадь отсюда:
-            S_km2 = r_main['properties']['Площадь территории, кв. км.']
-            geom['density'] = round(geom['pop_all']/S_km2, 2)
-              
-    # если просят показать уровень выше заданной тер-рии -- ошибка
-    # (Ex: передали Романовское СП, а просят показать уровень Всев.района)
-    else:
-       raise ValueError(f'Show level (given: {show_level}) must be >= territory type (given: {territory_type})')
-       
-    return r_main, territory_type, geom
-
-
-def main_pop_info(territory_id=34, show_level=3):
-    '''
-    Основные характеристики населения:
-
-    Параметры:
-     - territory_id: id территории
-     - show_level: в каком делении выводить данные (territory_type_id в API)
-         (1 - регион, 2 - МО (Всев.район), 3 - Поселение (ГП и СП), 4 - населенные пункты)
-    
-    Вывод: geojson
-    - geometry: геометрия территории
-    - pop_all: численность общая
-      pop_younger: 0-15 лет включительно
-      pop_can_work: 16-60 лет включительно
-      pop_older: 61-100 лет
-    - демографические показатели (коэфф-ты смертности, рожд-ти, миграции)
-    - density: плотность населения.
-    
-    '''
-    session = requests.Session()
-    r_main, territory_type, geom = barebones_for_info(territory_id, session, show_level)
-    
-    # ____ Наполняем костяк данными
-    # Если уровень позволяет, берем площадь и половозр.пирамиду
-    if (show_level <= 2) & (territory_type == show_level):
-        # численность тоже отсюда, тк в .../api/v1/territory/{territory_id} 
-        # нет привязки численности к дате, лучше уверенно взять самую новую инф-ию
-        pop_df = get_detailed_pop(session, territory_id, False)
-        if pop_df.shape[0]:
-            geom[['pop_all','pop_younger','pop_can_work','pop_older']] = groups_3(pop_df)
-
-        # Если половозрастные данные ожидались, но не получились -- наполняем так    
-        else:
-            # print('Половозрастные данные не найдены; берем вероятности Всеволожского района')
-            geom = fill_in_by_34(session, territory_id, geom)
-
-
-    #elif show_level-1 <= 2:
-       
-    # НО! если заданный родитель с возрастами ИЛИ у заданной территории есть родитель с возрастами,
-    # то заполним инфу для детей на основе родителя
-
-    # если уровень территории имеет родителя (поселение или город)
-    elif territory_type-1 <= 2:
-         # если уровень родителя позволяет (поселение или город)
-        if territory_type<=2:
-            id_of_interest = territory_id
-        #elif territory_type
-        # если уровень территории имеет родителя (поселение или город)
-        else:
-            id_of_interest = r_main['parent']['id']
-        
-        # print(f'Разделение по возрастам от родителя с id {id_of_interest}')
-        pop_df = get_detailed_pop(session, id_of_interest, False)
-        
-        if pop_df.shape[0]:
-            all_pop ,young, can_work, old = groups_3(pop_df)
-            # доля возрастных групп относительно всей популяции
-            young_fr, can_work_fr, old_fr = np.array([young, can_work, old])/all_pop
-            # раскидываем числа с учетом вероятностей
-            np.random.seed(27) 
-            geom[['pop_younger','pop_can_work','pop_older']
-                ] = geom['pop_all'].apply(
-                lambda x: np.random.multinomial(x,
-                                                [young_fr,can_work_fr,old_fr])).to_list()
-
-        # Если половозрастные данные ожидались, но не получились -- наполняем так    
-        else:
-            # print('Половозрастные данные не найдены; берем вероятности Всеволожского района')
-            geom = fill_in_by_34(session, territory_id, geom)
-     
-    # иначе довольствуемся общей численностью и площадью с основного запроса  
-    # а мы и так взяли эту инф-ию с children_pop_dnst
-    
-    # ____ Если данных колонок нет, то добавляем и ставим нули
-    cols = ['density','pop_all','pop_younger','pop_can_work','pop_older',
-            'koeff_death','koeff_birth','koeff_migration']
-    geom = geom.reindex(geom.columns.union(cols, sort=False), axis=1, fill_value=0)
-    geom[['pop_all','pop_younger','pop_can_work','pop_older']] = \
-        geom[['pop_all','pop_younger','pop_can_work','pop_older']].astype(int)
-    cols_order = ['territory_id','name','geometry']+cols
-    return geom[cols_order]
-
-
 def detailed_pop_info(territory_id=34):
     session = requests.Session()
-    
     # ____ Половозрастная структура
     pop_df = get_detailed_pop(session, territory_id, True, False)
     if pop_df.shape[0]:

@@ -4,7 +4,7 @@ Created on Wed May 15 14:11:49 2024
 
 @author: user
 """
-from flask import request, send_file, redirect
+from flask import request, send_file, redirect, Response
 from flask_cors import CORS, cross_origin
 
 from app_package.api import bp as bp_api
@@ -29,6 +29,7 @@ territories_api = os.environ.get('TERRITORY_API')
 @bp_api.route('/')
 @cross_origin()
 def zero_to_docs():
+    
     return redirect("/api/docs", code=302)
 
 
@@ -55,24 +56,28 @@ def func(x):
 @bp_api.route('/regions/pyramid_data', methods=['GET'])
 @cross_origin()
 def pyramid_data():
-    given_year = request.args.get('given_year', type = int)
-    territory_id = request.args.get('territory_id', type = int)
+    given_year = request.args.get('given_year', type = int, default=2020)
+    territory_id = request.args.get('territory_id', type = int, default=34)
     n_age_groups = request.args.get('n_age_groups', type = int, default=5)
     
-    url = social_api + f'indicators/2/{territory_id}/detailed'
-    r = requests.get(url, params={'year':given_year})
-    all_popul = r.json()
-    df = pd.DataFrame(all_popul[0]['data'])
-    # на всякий случай задаем возраста: 
-        # 1) все с интервалом 1 год
-        # 2) 100+ 
-        # 3) с интервалом 4 года для старших
-    df = df[(df['age_start']==df['age_end'])|(
-            df['age_start']==100)|(
-            (df['age_end']-df['age_start']==4)&(df['age_end'].isin([74,79,84,
-                                                                    89,94,99])))]
-    df['группа'] = df.iloc[:,:2].apply(func, 1)
-    df = df.set_index('группа').iloc[:,2:]
+    try:
+        url = social_api + f'indicators/2/{territory_id}/detailed'
+        r = requests.get(url, params={'year':given_year})
+        all_popul = r.json()
+        df = pd.DataFrame(all_popul[0]['data'])
+        # на всякий случай задаем возраста: 
+            # 1) все с интервалом 1 год
+            # 2) 100+ 
+            # 3) с интервалом 4 года для старших
+        df = df[(df['age_start']==df['age_end'])|(
+                df['age_start']==100)|(
+                (df['age_end']-df['age_start']==4)&(df['age_end'].isin([74,79,84,
+                                                                        89,94,99])))]
+        df['группа'] = df.iloc[:,:2].apply(func, 1)
+        df = df.set_index('группа').iloc[:,2:]
+
+    except:
+        raise requests.exceptions.RequestException(f'Problem with {r.url}')
     
     # ставим года
     df.columns = pd.MultiIndex.from_product([[given_year], ['Мужчины', 'Женщины']])
@@ -93,38 +98,43 @@ def pyramid_data():
     # чтобы мужчины были слева графика
     age_groups_df[given_year]['Мужчины'] *= -1
     age_groups_df.index = age_groups_df.index.astype(str)
-    return age_groups_df[given_year].to_json(orient="split")
+    
+    return Response(age_groups_df[given_year].to_json(orient="split"), 
+                    mimetype='application/json')
 
 
 @bp_api.route('/regions/migration_data', methods=['GET'])
 @cross_origin()
 def migration_data():
-    given_year = request.args.get('given_year', type = int)
-    territory_id = request.args.get('territory_id', type = int)
+    given_year = request.args.get('given_year', type = int, default=2020)
+    territory_id = request.args.get('territory_id', type = int, default=34)
     n_age_groups = request.args.get('n_age_groups', type = int, default=5)
     
-    url = social_api + f'indicators/2/{territory_id}/detailed'
+    try:
+        url = social_api + f'indicators/2/{territory_id}/detailed'
+        
+        dfs = []
+        # нужны данные за два года
+        for year in [given_year-1, given_year]:
+            r = requests.get(url, params={'year':year})
+            all_popul = r.json()
+            
+            df = pd.DataFrame(all_popul[0]['data'])
+            # на всякий случай задаем возраста: 
+                # 1) все с интервалом 1 год
+                # 2) 100+ 
+                # 3) с интервалом 4 года для старших
+            df = df[(df['age_start']==df['age_end'])|(
+                    df['age_start']==100)|(
+                    (df['age_end']-df['age_start']==4)&(df['age_end'].isin([74,79,84,
+                                                                            89,94,99])))]
+            df['группа'] = df.iloc[:,:2].apply(func, 1)
+            df = df.set_index('группа').iloc[:,2:]
+            df.columns = ['Мужчины', 'Женщины']
+            dfs.append(df)
+    except:
+        raise requests.exceptions.RequestException(f'Problem with {r.url}')
     
-    dfs = []
-    # нужны данные за два года
-    for year in [given_year-1, given_year]:
-        r = requests.get(url, params={'year':year})
-        all_popul = r.json()
-        
-        df = pd.DataFrame(all_popul[0]['data'])
-        # на всякий случай задаем возраста: 
-            # 1) все с интервалом 1 год
-            # 2) 100+ 
-            # 3) с интервалом 4 года для старших
-        df = df[(df['age_start']==df['age_end'])|(
-                df['age_start']==100)|(
-                (df['age_end']-df['age_start']==4)&(df['age_end'].isin([74,79,84,
-                                                                        89,94,99])))]
-        df['группа'] = df.iloc[:,:2].apply(func, 1)
-        df = df.set_index('группа').iloc[:,2:]
-        df.columns = ['Мужчины', 'Женщины']
-        dfs.append(df)
-        
     df_full = pd.concat(dfs, axis=1, ignore_index=True) 
     # ставим года
     df_full.columns = pd.MultiIndex.from_tuples([(given_year-1, "Мужчины"),(given_year-1, 'Женщины'),
@@ -149,7 +159,8 @@ def migration_data():
     # выбираем нужный год
     required_part = diff_grouped.loc[:,given_year]
     
-    return required_part.to_json(orient="split")
+    return Response(required_part.to_json(orient="split"), 
+                    mimetype='application/json')
 
 
 def create_polygon(coordinates):
@@ -159,32 +170,42 @@ def create_polygon(coordinates):
 @bp_api.route('/regions/density_data', methods=['GET'])
 @cross_origin()
 def density_data():
-    parent_id = request.args.get('parent_id', type = str)
-    given_year = request.args.get('given_year', type = int)
+    parent_id = request.args.get('parent_id', type = str, default=34)
+    given_year = request.args.get('given_year', type = int, default=2020)
+    last_only = request.args.get('last_only', type = bool, default=True)
     
-    # берем координаты территорий внутри заданной 
-    url = territories_api + 'api/v1/territories'
-    params = {'parent_id':parent_id,'get_all_levels':'false','page':'1','page_size':'50'}
-    r = requests.get(url, params = params)
-    places_df = pd.DataFrame(r.json()['results'])
-    
-    # ищем данные о суммарной популяции каждой тер-рии за заданный год
-    # (тк в данных с координанатами население только за последний год?)
-    places_ids = places_df['territory_id'].values
-    places_popul = []
-    for place_id in places_ids:
-        url = social_api + f'indicators/2/{place_id}'
-        r = requests.get(url)
-        all_popul = r.json()
-        # выбираем данные за нужный год
-        needed_popul = [i['value'] for i in all_popul if i['year']==given_year]
-        places_popul.append(needed_popul[0])
-    
-    places_df[given_year] = places_popul
+    try:
+        # берем координаты территорий внутри заданной 
+        url = territories_api + 'api/v1/territories'
+        params = {'parent_id':parent_id,'get_all_levels':'false','page':'1','page_size':'1000'}
+        r = requests.get(url, params = params)
+        places_df = pd.DataFrame(r.json()['results'])
+        
+        if last_only:
+            places_popul = pd.json_normalize(places_df['properties'])['Численность населения'].values
+            given_year=2023 # не прописано в ответе, но данные за посл.год
+            places_df[given_year] = places_popul
+        else:
+            # ищем данные о суммарной популяции каждой тер-рии за заданный год
+            # (тк в данных с координанатами население только за последний год?)
+            places_ids = places_df['territory_id'].values
+            places_popul = []
+            for place_id in places_ids:
+                url = social_api + f'indicators/2/{place_id}'
+                r = requests.get(url)
+                all_popul = r.json()
+                # выбираем данные за нужный год
+                needed_popul = [i['value'] for i in all_popul if i['year']==given_year]
+                places_popul.append(needed_popul[0])
+            places_df[given_year] = places_popul
+            
+    except:
+        raise requests.exceptions.RequestException(f'Problem with {r.url}')
     
     # создаем геодатафрейм и вставляем данные по координатам
     df = gpd.GeoDataFrame(places_df)
-    df['geometry'] = df['geometry'].apply(lambda x: create_polygon(x['coordinates']))
+    print(df['geometry'])
+    df['geometry'] = df['geometry'].apply(lambda x: create_polygon(x['coordinates'][0]))
     df['geometry'].crs = 'EPSG:4326'
     df = df.set_geometry('geometry')
     # считаем плотность населения
@@ -201,36 +222,42 @@ def density_data():
     df = df.sort_values('binned')
     # тк иначе жалуется, если отсутствует категория
     df['binned'] = df['binned'].astype('str') 
+    res = df[['territory_id','name','geometry',given_year, clm_with_dnst,'binned']]
     
-    #return df[['fid','name',str(given_year), 'geometry', clm_with_dnst,'binned']].to_json()
-    return df[['territory_id','name','geometry',given_year, clm_with_dnst,'binned']].to_json()
+    return Response(res.to_json(), 
+                    mimetype='application/json') 
 
 
 @bp_api.route('/regions/density_data_full', methods=['GET'])
 @cross_origin()
 def density_data_full():
-    parent_id = request.args.get('parent_id', type = str)
+    parent_id = request.args.get('parent_id', type = str, default=34)
 
     session = requests.Session()
     
     full_df = DensityInfo.density_data_geojson(session=session, territory_id=parent_id, 
                                                  from_api=True)
-    return full_df.to_json()
+    return Response(full_df.to_json(), 
+                    mimetype='application/json') 
 
 
 @bp_api.route('/regions/area_needs', methods=['GET'])
 @cross_origin()
 def area_needs():
-    territory_id = request.args.get('territory_id', type = int)
-    given_year = request.args.get('given_year', type = int)
+    territory_id = request.args.get('territory_id', type = int, default=34)
+    given_year = request.args.get('given_year', type = int, default=2020)
     
-    url = social_api + f'indicators/2/{territory_id}/detailed'
-    r = requests.get(url, params={'year':given_year})
-    all_popul = r.json()
-    df = pd.DataFrame(all_popul[0]['data'])
+    try:
+        url = social_api + f'indicators/2/{territory_id}/detailed'
+        r = requests.get(url, params={'year':given_year})
+        all_popul = r.json()
+        df = pd.DataFrame(all_popul[0]['data'])
+    except:
+        raise requests.exceptions.RequestException(f'Problem with {r.url}')
+        
     df['группа'] = df.iloc[:,:2].apply(func, 1)
     df = df.set_index('группа').iloc[:,2:]
-    
+
     # ставим года
     df.columns = pd.MultiIndex.from_product([[given_year], ['Мужчины', 'Женщины']])
     df.columns.set_names(['', "пол"], level=[0,1], inplace=True)
@@ -261,32 +288,35 @@ def area_needs():
         all_values += np.array(value) * percent
 
     fc = pd.DataFrame([all_values], columns=needs)
-    return fc.apply(lambda x: x/fc.sum(1)).to_json(orient="split")
+    return Response(fc.apply(lambda x: x/fc.sum(1)).to_json(orient="split"), 
+                    mimetype='application/json')
 
 
 @bp_api.route('/regions/pop_needs', methods=['GET'])
 @cross_origin()
 def pop_needs():
     df = pd.read_csv(file_dir+'pop_needs.csv', index_col=0)
-    return df.to_json(orient="split")
+    return Response(df.to_json(orient="split"), 
+                    mimetype='application/json')
 
 #____________ OFFICIAL F11
 
 @bp_api.route('/regions/main_info', methods=['GET'])
 @cross_origin()
 def main_info():
-    territory_id = request.args.get('territory_id', type = int)
-    show_level = request.args.get('show_level', type = int)
+    territory_id = request.args.get('territory_id', type = int, default=34)
+    show_level = request.args.get('show_level', type = int, default=2)
     
-    result = PopInfoForAPI.main_pop_info(territory_id=territory_id, 
+    result = PopInfoForAPI.info(territory_id=territory_id, 
                                          show_level=show_level)
-    return result.set_geometry('geometry').to_json()
-
-
+    
+    return Response(result.set_geometry('geometry').to_json(), 
+                    mimetype='application/json')
+    
 @bp_api.route('/regions/detailed_info', methods=['GET'])
 @cross_origin()
 def detailed_info():
-    territory_id = request.args.get('territory_id', type = int)
+    territory_id = request.args.get('territory_id', type = int, default=34)
     pop_df, groups_df, dynamic_pop_df, \
         soc_pyramid_df, values_df = PopInfoForAPI.detailed_pop_info(territory_id)
     
@@ -297,10 +327,22 @@ def detailed_info():
 
 @bp_api.route('/migrations/main_info', methods=['GET'])
 @cross_origin()
-def mig_main():
-    territory_id = request.args.get('territory_id', type = int)
-    show_level = request.args.get('show_level', type = int)
+def main_migr():
+    territory_id = request.args.get('territory_id', type = int, default=34)
+    show_level = request.args.get('show_level', type = int, default=2)
     
     result = MigInfoForAPI.info(territory_id=territory_id, 
-                                         show_level=show_level)
-    return result.set_geometry('geometry').to_json()
+                                show_level=show_level)
+    return Response(result.set_geometry('geometry').to_json(), 
+                    mimetype='application/json')
+
+
+@bp_api.route('/migrations/detailed_info', methods=['GET'])
+@cross_origin()
+def detailed_migr():
+    territory_id = request.args.get('territory_id', type = int, default=34)
+    
+    result = MigInfoForAPI.info(territory_id=territory_id, 
+                                detailed=True)
+    return Response(result.to_json(orient="records"), 
+                    mimetype='application/json')

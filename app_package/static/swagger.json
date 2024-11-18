@@ -6,13 +6,21 @@
     "description": "Get Population and Territory information for a given area and year"
   },
   "servers": [
-    {"url": "http://10.32.1.47:5000/api/regions/", "description":"main server"
+    {
+      "url": "http://10.32.1.47:5000/api/",
+      "description": "main server"
     },
-    {"url": "https://area-info.onrender.com/api/regions/", "description":"just in case"
+    {
+      "url": "https://area-info.onrender.com/api/",
+      "description": "just in case"
+    },
+    {
+      "url": "http://127.0.0.1:5000/api/",
+      "description": "local"
     }
   ],
   "paths": {
-    "/main_info": {
+    "/regions/main_info": {
       "get": {
         "tags": [
           "Module 11"
@@ -40,7 +48,7 @@
         }
       }
     },
-    "/detailed_info": {
+    "/regions/detailed_info": {
       "get": {
         "tags": [
           "Module 11"
@@ -65,7 +73,62 @@
         }
       }
     },
-    "/density_data_full": {
+    "/migrations/main_info": {
+      "get": {
+        "tags": [
+          "Module 21"
+        ],
+        "summary": "Migration information (recent year): num in/out, factors",
+        "description": "Inflow of <young / able to work / old> migrants; <br>  Outflow of <young / able to work / old> migrants; <br> Migration factors: avgemployers, avgsalary, ...",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/territory_id"
+          },
+          {
+            "$ref": "#/components/parameters/show_level"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/mig_main_info_200"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/migrations/detailed_info": {
+      "get": {
+        "tags": [
+          "Module 21"
+        ],
+        "summary": "Migration detailed information (all years): num in/out, types, factors",
+        "description": "Inflow of <across russia / outside region / inside region /  international / interregional / all / other countries / CIS counries> migrants; <br>  Outflow of the same migrants; <br> Migration factors: avgemployers, avgsalary, ... <br><br> // В пределах России, Внешняя (для региона) миграция, Внутрирегиональная,  Международная, Межрегиональная, Миграция, всего,  С другими зарубежными странами, Со странами СНГ",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/territory_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/mig_detailed_info_200"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/regions/density_data_full": {
       "get": {
         "tags": [
           "returns geojson"
@@ -90,7 +153,7 @@
         }
       }
     },
-    "/density_data": {
+    "/regions/density_data": {
       "get": {
         "tags": [
           "returns geojson"
@@ -102,6 +165,9 @@
           },
           {
             "$ref": "#/components/parameters/given_year"
+          },
+          {
+            "$ref": "#/components/parameters/last_only"
           }
         ],
         "responses": {
@@ -118,7 +184,7 @@
         }
       }
     },
-    "/pyramid_data": {
+    "/regions/pyramid_data": {
       "get": {
         "tags": [
           "returns json"
@@ -149,7 +215,7 @@
         }
       }
     },
-    "/migration_data": {
+    "/regions/migration_data": {
       "get": {
         "tags": [
           "returns json"
@@ -180,7 +246,7 @@
         }
       }
     },
-    "/area_needs": {
+    "/regions/area_needs": {
       "get": {
         "tags": [
           "returns json"
@@ -208,7 +274,7 @@
         }
       }
     },
-    "/pop_needs": {
+    "/regions/pop_needs": {
       "get": {
         "tags": [
           "returns json"
@@ -233,6 +299,7 @@
     "parameters": {
       "parent_id": {
         "name": "parent_id",
+        "default": 34,
         "in": "query",
         "description": "Parent id of desired areas. *Example: 34*",
         "required": true,
@@ -242,6 +309,7 @@
       },
       "territory_id": {
         "name": "territory_id",
+        "default": 34,
         "in": "query",
         "description": "Territory id. *Example: 34*",
         "required": true,
@@ -249,8 +317,19 @@
           "type": "integer"
         }
       },
+      "last_only": {
+        "name": "last_only",
+        "in": "query",
+        "description": "To show only last year info. *Example: True*",
+        "required": false,
+        "default": true,
+        "schema": {
+          "type": "boolean"
+        }
+      },
       "show_level": {
         "name": "show_level",
+        "default": 2,
         "in": "query",
         "description": "Territory levels to show. *Example: 2*",
         "required": true,
@@ -269,6 +348,7 @@
       },
       "given_year": {
         "name": "given_year",
+        "default": 2020,
         "in": "query",
         "description": "Data for a given year. *Example: 2020*",
         "required": true,
@@ -278,6 +358,7 @@
       },
       "n_age_groups": {
         "name": "n_age_groups",
+        "default": 5,
         "in": "query",
         "description": "Number of ages in an age interval. *Defualt: 5*",
         "required": false,
@@ -532,6 +613,111 @@
               "example": [
                 "..."
               ]
+            }
+          }
+        }
+      },
+      "mig_main_info_200": {
+        "title": "Sample",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "territory_id": {
+              "type": "integer",
+              "example": 34
+            },
+            "name": {
+              "type": "string",
+              "example": "Всеволожский муниципальный район"
+            },
+            "geometry": {
+              "example": ""
+            },
+            "younger_in": {
+              "type": "number",
+              "example": 13974
+            },
+            "work_in": {
+              "type": "number",
+              "example": 36966
+            },
+            "old_in": {
+              "type": "number",
+              "example": 4891
+            },
+            "younger_out": {
+              "type": "number",
+              "example": 6588
+            },
+            "work_out": {
+              "type": "number",
+              "example": 18678
+            },
+            "old_out": {
+              "type": "number",
+              "example": 2229
+            },
+            "avgemployers": {
+              "type": "number",
+              "example": 70096
+            },
+            "other": {
+              "type": "string",
+              "example": "..."
+            }
+          }
+        }
+      },
+      "mig_detailed_info_200": {
+        "title": "Sample",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "year": {
+              "type": "number",
+              "example": 2019
+            },
+            "russia_in": {
+              "type": "number",
+              "example": 58967
+            },
+            "outside_region_in": {
+              "type": "number",
+              "example": 56890
+            },
+            "inside_region_in": {
+              "type": "number",
+              "example": 6466
+            },
+            "international_in": {
+              "type": "number",
+              "example": 4389
+            },
+            "interregional_in": {
+              "type": "number",
+              "example": 52501
+            },
+            "all_mig_in": {
+              "type": "number",
+              "example": 63356
+            },
+            "other_countries_in": {
+              "type": "number",
+              "example": 239
+            },
+            "cis_counries_in": {
+              "type": "number",
+              "example": 4150
+            },
+            "russia_out": {
+              "type": "number",
+              "example": 21423
+            },
+            "other": {
+              "type": "string",
+              "example": "..."
             }
           }
         }

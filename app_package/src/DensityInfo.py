@@ -12,27 +12,29 @@ territories_api = os.environ.get('TERRITORY_API')
 
 
 def get_all_children_data(session, territory_id=34, from_api=True):
-    # все населенные пункты, ГП, СП, входящие в заданный район
-    get_all_levels_str = 'true'
-    url = territories_api + f'api/v2/territories?parent_id={territory_id}&get_all_levels={get_all_levels_str}&page_size=1000'
-    #url = territories_api + f'api/v1/all_territories?parent_id={territory_id}&get_all_levels=True'
-    r = session.get(url)
-    children = pd.DataFrame(r.json())
-    # раскрываем json
-    res = pd.json_normalize(children['results'], max_level=0)
-    res_vill = pd.concat([res.drop('parent', axis='columns'), 
-                          pd.json_normalize(res.parent).add_prefix('parent.')],
-                          axis=1)
-    # меняем тип колонки с геометрией
-    for_use = res_vill.copy()
-    all_children = gpd.GeoDataFrame(res_vill, 
-                         geometry=[shape(d) for d in for_use.pop("geometry")])
-
+    try:
+        # все населенные пункты, ГП, СП, входящие в заданный район
+        url = territories_api + 'api/v2/territories'
+        params = {'parent_id':territory_id,'get_all_levels':'true','cities_only':'false','page_size':'1000'}
+        #url = territories_api + f'api/v1/all_territories?parent_id={territory_id}&get_all_levels=True'
+        r = session.get(url, params=params)
+        children = pd.DataFrame(r.json())
+        # раскрываем json
+        res = pd.json_normalize(children['results'], max_level=0)
+        res_vill = pd.concat([res.drop('parent', axis='columns'), 
+                              pd.json_normalize(res.parent).add_prefix('parent.')],
+                              axis=1)
+        # меняем тип колонки с геометрией
+        for_use = res_vill.copy()
+        all_children = gpd.GeoDataFrame(res_vill, 
+                             geometry=[shape(d) for d in for_use.pop("geometry")])
+    except:
+        raise requests.exceptions.RequestException(f'Problem with {r.url}')
+        
     return all_children
 
 
 def clip_all_children(all_children):
-    
     a = all_children.copy()
     # объединим, чтобы для каждого ГП/СП был один полигон
     buff = a[a.level==5].dissolve(by='parent.name').set_crs(epsg=4326)
@@ -52,33 +54,37 @@ def clip_all_children(all_children):
 
 
 def get_first_children_data(session, territory_id=34, from_api=True):
-    # 34 -- Всеволожский муниципальный район
-    url=territories_api+f'api/v1/territory/indicator_values?parent_id={territory_id}&indicator_ids=1&last_only=false'
-    r = session.get(url)
-    first_children = pd.DataFrame(r.json())
+    try:
+        # 34 -- Всеволожский муниципальный район
+        url= territories_api + 'api/v1/territory/indicator_values'
+        params = {'parent_id':territory_id,'indicator_ids':'1','last_only':'false'}
+        r = session.get(url, params=params)
+        first_children = pd.DataFrame(r.json())
+        
+        # df: type, geometry, properties(territory_id,name,...)
+        vills_with_geom = pd.json_normalize(first_children['features'], max_level=0)
+        # df: territory_id, name, indicators
+        vills_with_pop = pd.json_normalize(vills_with_geom['properties'], max_level=0)
     
-    # df: type, geometry, properties(territory_id,name,...)
-    vills_with_geom = pd.json_normalize(first_children['features'], max_level=0)
-    # df: territory_id, name, indicators
-    vills_with_pop = pd.json_normalize(vills_with_geom['properties'], max_level=0)
-
-    if vills_with_pop['indicators'].str.len().min() > 0:
-        # раскрываем json с данными о населении
-        # на выходе pd Series [[years, pop_values],...]
-        pop_vals = vills_with_pop['indicators'].apply(lambda x: pd.json_normalize(x)[['date_value','value']].values)
-        # берем года для будущих названий колонок
-        clms = pop_vals[0][:,0]
-        clms = [c[:4] for c in clms] # ['2019', '2020', '2021', '2022', '2023']
-        # собираем все значения в один массив
-        # 19 x 5 x -1
-        pop_vals_one_arr = np.concatenate(pop_vals).reshape(vills_with_geom.shape[0], len(clms), -1) 
-        vills_with_pop[clms] = pop_vals_one_arr[:,:,1]
-    vills_with_pop = vills_with_pop.drop('indicators', axis='columns')
-    
-    for_use = vills_with_geom.copy()
-    first_children_f = gpd.GeoDataFrame(vills_with_pop, 
-                                       geometry=[shape(d) for d in for_use.pop("geometry")])
-    first_children_f['geometry'].crs = 'EPSG:4326'
+        if vills_with_pop['indicators'].str.len().min() > 0:
+            # раскрываем json с данными о населении
+            # на выходе pd Series [[years, pop_values],...]
+            pop_vals = vills_with_pop['indicators'].apply(lambda x: pd.json_normalize(x)[['date_value','value']].values)
+            # берем года для будущих названий колонок
+            clms = pop_vals[0][:,0]
+            clms = [c[:4] for c in clms] # ['2019', '2020', '2021', '2022', '2023']
+            # собираем все значения в один массив
+            # 19 x 5 x -1
+            pop_vals_one_arr = np.concatenate(pop_vals).reshape(vills_with_geom.shape[0], len(clms), -1) 
+            vills_with_pop[clms] = pop_vals_one_arr[:,:,1]
+        vills_with_pop = vills_with_pop.drop('indicators', axis='columns')
+        
+        for_use = vills_with_geom.copy()
+        first_children_f = gpd.GeoDataFrame(vills_with_pop, 
+                                           geometry=[shape(d) for d in for_use.pop("geometry")])
+        first_children_f['geometry'].crs = 'EPSG:4326'
+    except:
+        raise requests.exceptions.RequestException(f'Problem with {r.url}')
     
     return first_children_f
 
