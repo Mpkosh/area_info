@@ -5,10 +5,14 @@ from shapely.geometry import shape
 import numpy as np
 from app_package.src import AreaOnMapFile
 import os
-
+from shapely.geometry import Point
 
 social_api = os.environ.get('SOCIAL_API')
-territories_api = os.environ.get('TERRITORY_API') 
+territories_api = os.environ.get('TERRITORY_API')
+
+ 
+def create_point(x):
+    return Point(x['coordinates'])
 
 
 def get_all_children_data(session, territory_id=34, from_api=True):
@@ -36,9 +40,12 @@ def get_all_children_data(session, territory_id=34, from_api=True):
 
 def clip_all_children(all_children):
     a = all_children.copy()
+    a['centre_point'] = a['centre_point'].apply(lambda x: create_point(x))
+    a = a.drop(columns='geometry').set_geometry('centre_point')
+    
     # объединим, чтобы для каждого ГП/СП был один полигон
     buff = a[a.level==5].dissolve(by='parent.name').set_crs(epsg=4326)
-    
+    '''
     # вручную режем по границе КАЖДОГО ГП/СП, 
     # тк если на втором месте в .clip() - датафрейм, то режет по его общей внешней границе
     gp_sp_orig = a[a.level==4].set_crs(epsg=4326).sort_values(by='name')
@@ -49,8 +56,8 @@ def clip_all_children(all_children):
                              gp_sp_orig.iloc[i:i+1]
                             )
         np_clipped = pd.concat([np_clipped,clipped])
-
-    return np_clipped
+    '''
+    return buff
 
 
 def get_first_children_data(session, territory_id=34, from_api=True):
@@ -131,9 +138,17 @@ def get_density_data(session, territory_id=34, from_api=False):
 
     #    Данные о всех населенных пунктах
     all_children = get_all_children_data(session, territory_id, from_api)
+    
     # вручную режем по границе КАЖДОГО ГП/СП
     np_clipped = clip_all_children(all_children)
-    vills_in_area = np_clipped.reset_index().set_crs(epsg=4326)[['parent.name','geometry']]
+    vills_in_area = np_clipped.reset_index().set_crs(epsg=4326)[['parent.name','centre_point']]
+    '''
+    # деревни в виде точек
+    children = all_children[all_children.level==5].copy()
+    children['centre_point'] = children['centre_point'].apply(lambda x: create_point(x))
+    vills_in_area = children.reset_index().set_crs(epsg=4326)[['parent.name','centre_point']]
+    '''
+    
     fin_vills_full = df.merge(vills_in_area, left_on='name', right_on='parent.name')
     
     return df, fin_vills_full, all_children
@@ -143,9 +158,14 @@ def density_data_geojson(session, territory_id=34, from_api=False):
     # данные о ГП/СП и НП
     _, fin_vills_full, _ = get_density_data(session, territory_id=territory_id, 
                                             from_api=from_api)
-
+    '''
     full_df = fin_vills_full.drop(columns=['parent.name']).rename(columns={'geometry_x':'geometry_areas',
                                                                           'geometry_y':'geometry_villages'}
+                                                                 ).set_geometry('geometry_areas'
+                                                                               ).set_index('territory_id')
+    '''
+    full_df = fin_vills_full.drop(columns=['parent.name']).rename(columns={'geometry':'geometry_areas',
+                                                                          'centre_point':'geometry_villages'}
                                                                  ).set_geometry('geometry_areas'
                                                                                ).set_index('territory_id')
     # меняем, чтобы удалось преобразовать в geojson
