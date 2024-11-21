@@ -2,7 +2,7 @@ import requests
 import pandas as pd
 import geopandas as gpd
 import numpy as np
-#from tqdm.notebook import tqdm
+from shapely.geometry import Point
 import os
 from app_package.src import PreproDF, DemForecast
 
@@ -68,6 +68,10 @@ class Territory():
         self.children = []
         self.parent = 0
         
+
+def create_point(x):
+    return Point(x['coordinates']) 
+
         
 def info(territory_id=34, show_level=3):
     '''
@@ -122,7 +126,7 @@ def info(territory_id=34, show_level=3):
     if show_level==4:
         # восполняем тем, что есть; на всякий случай сортируем
         # print('Заполнение колонки pop_all с файла towns.geojson')
-        towns = gpd.read_file('../towns.geojson')
+        towns = gpd.read_file('app_package/src/towns.geojson')
         towns = towns.set_index('territory_id').loc[fin_df.territory_id].reset_index()
         fin_df['pop_all'] = towns[towns.territory_id.isin(fin_df.territory_id)]['population'].values
         fin_df['pop_all'] = fin_df['pop_all'].fillna(0)
@@ -236,20 +240,28 @@ def child_to_class(x, parent_class):
     parent_class.children.append(child)        
 
     
-def children_pop_dnst(session, territory_id, pop_and_dnst=True):
+def children_pop_dnst(session, parent_class, pop_and_dnst=True):
     # здесь для ЛО нет площади
     # здесь для НП нет инф-ии о численности и площади
     # для ЛО и territory_type_id=3 показывает только Сосновоборский
     # для ЛО и territory_type_id=4 показывает []
     try:
+        territory_id = parent_class.territory_id
         url = terr_api + 'api/v2/territories'
         params = {'parent_id':territory_id,'get_all_levels':'false','cities_only':'false','page_size':'1000'}
         r = session.get(url, params=params)
         res = pd.DataFrame(r.json()) 
         res = pd.json_normalize(res['results'], max_level=0)
         fin = res[['territory_id','name','oktmo_code']].copy()
-        with_geom = gpd.GeoDataFrame.from_features(r.json()['results'])
-        fin['geometry'] = with_geom['geometry']
+        
+        children_type = parent_class.territory_type+1
+        if children_type <= 3:
+            with_geom = gpd.GeoDataFrame.from_features(r['results'])
+            fin['geometry'] = with_geom['geometry']
+        else:
+            fin.loc[:,'geometry'] = res['centre_point'].apply(lambda x: create_point(x))
+            fin = fin.set_geometry('geometry').set_crs(epsg=4326)
+            
     except:
         raise requests.exceptions.RequestException(f'Problem with {r.url}')
         
@@ -270,9 +282,10 @@ def children_pop_dnst(session, territory_id, pop_and_dnst=True):
     return pd.DataFrame([])
 
 
-def children_pop_dnst_LO(session, territory_id):
+def children_pop_dnst_LO(session, parent_class):
     # но здесь нет октмо 
     try:
+        territory_id = parent_class.territory_id
         url= terr_api + 'api/v1/territory/indicator_values'
         params = {'parent_id':territory_id,'indicator_ids':'1,4','last_only':'true'}
         r = session.get(url, params=params)
@@ -305,12 +318,12 @@ def get_children(session, parent_id, parent_class):
 
     if parent_class.territory_type == 1:
         # для ЛО у детей нет площади у 193
-        fin = children_pop_dnst_LO(session, parent_class.territory_id)
+        fin = children_pop_dnst_LO(session, parent_class)
     elif parent_class.territory_type == 3:
         # для НП (show_level=4) нет инф-ии о численности и площади
-        fin = children_pop_dnst(session, parent_class.territory_id, pop_and_dnst=False)
+        fin = children_pop_dnst(session, parent_class, pop_and_dnst=False)
     else:
-        fin = children_pop_dnst(session, parent_class.territory_id, pop_and_dnst=True)
+        fin = children_pop_dnst(session, parent_class, pop_and_dnst=True)
     if fin.shape[0]:       
         fin.apply(child_to_class, parent_class=parent_class, axis=1)
     

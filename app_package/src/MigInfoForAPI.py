@@ -9,6 +9,7 @@ import requests
 import pandas as pd
 import numpy as np
 import geopandas as gpd
+from shapely.geometry import Point
 import os
 
 
@@ -26,7 +27,10 @@ class Territory():
         self.parent = 0
         
 
-        
+def create_point(x):
+    return Point(x['coordinates'])       
+
+
 def info(territory_id, show_level=0, detailed=False):
     session = requests.Session()
     current_territory = Territory(territory_id)
@@ -154,11 +158,20 @@ def get_children(session, parent_id, ter_class):
     r = session.get(url).json()
 
     if r['results']:
-        with_geom = gpd.GeoDataFrame.from_features(r['results']
-                                                  ).set_crs(epsg=4326)['geometry']
+        children_type = ter_class.territory_type+1
         res = pd.json_normalize(r['results'], max_level=0)
         fin = res[['territory_id','name','oktmo_code']].copy()
-        fin.loc[:,'geometry'] = with_geom
+                               
+        if children_type <= 3:
+            with_geom = gpd.GeoDataFrame.from_features(r['results']
+                                                      ).set_crs(epsg=4326)['geometry']
+            fin.loc[:,'geometry'] = with_geom
+                               
+        else:
+            fin.loc[:,'geometry'] = res['centre_point'].apply(lambda x: create_point(x))
+            fin = fin.set_geometry('geometry').set_crs(epsg=4326)
+        
+        
         fin.apply(child_to_class, ter_class=ter_class, axis=1)
         
         
