@@ -108,7 +108,7 @@
           "Module 21"
         ],
         "summary": "Migration detailed information (all years): num in/out, types, factors",
-        "description": "Inflow of <across russia / outside region / inside region /  international / interregional / all / other countries / CIS counries> migrants; <br>  Outflow of the same migrants; <br> Migration factors: avgemployers, avgsalary, ... <br><br> // В пределах России, Внешняя (для региона) миграция, Внутрирегиональная,  Международная, Межрегиональная, Миграция, всего,  С другими зарубежными странами, Со странами СНГ",
+        "description": "Inflow of <across russia / outside region / inside region /  international / interregional / all / other countries / CIS counries> migrants; <br>  Outflow of the same migrants; <br> Migration factors: avgemployers, avgsalary, ... <br><br> // В пределах России, Внешняя (для региона) миграция, Внутрирегиональная,  Международная, Межрегиональная, Миграция всего,  С другими зарубежными странами, Со странами СНГ",
         "parameters": [
           {
             "$ref": "#/components/parameters/territory_id"
