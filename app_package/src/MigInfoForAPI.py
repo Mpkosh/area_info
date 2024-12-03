@@ -50,14 +50,23 @@ def info(territory_id, show_level=0, detailed=False):
         n_children = show_level - current_territory.territory_type
         terr_classes = [current_territory]
         terr_ids = current_territory.df['territory_id'].values
-        # если нужен уровень детальнее
-        for i in range(n_children):
-            for ter_id, ter_class in zip(terr_ids, terr_classes):
-                get_children(session, ter_id, ter_class)
-            # новый набор для итерации    
-            terr_classes = [child for one_class in terr_classes for child in one_class.children]
-            # новые id тер-рий
+        
+        
+        
+        if show_level == 4:
+            get_children_one_try(session, current_territory)
+            terr_classes = current_territory.children
             terr_ids = [one_class.territory_id for one_class in terr_classes]
+            
+        else:    
+            # если нужен уровень детальнее
+            for i in range(n_children):
+                for ter_id, ter_class in zip(terr_ids, terr_classes):
+                    get_children(session, ter_id, ter_class)
+                # новый набор для итерации    
+                terr_classes = [child for one_class in terr_classes for child in one_class.children]
+                # новые id тер-рий
+                terr_ids = [one_class.territory_id for one_class in terr_classes]
 
         # all final children in <terr_classes>    
         fin_df = pd.DataFrame([])
@@ -140,25 +149,25 @@ def main_info(session, current_territory, show_level):
         current_territory.df['name'] = current_territory.name
 
     
-def child_to_class(x, ter_class):
+def child_to_class(x, parent_class):
     child = Territory(x['territory_id'])
     child.name = x['name']
     child.oktmo = x['oktmo_code']
     child.df['name'] = child.name
     child.geometry = x['geometry']
-    child.territory_type = ter_class.territory_type+1
+    child.territory_type = parent_class.territory_type+1
     
-    child.parent = ter_class
-    ter_class.children.append(child)
+    child.parent = parent_class
+    parent_class.children.append(child)
 
 
-def get_children(session, parent_id, ter_class):
-    
+def get_children(session, parent_id, parent_class):
+    #print(f'children for {parent_id}')
     url= terr_api + f'api/v2/territories?parent_id={parent_id}&get_all_levels=false&cities_only=false&page_size=1000'
     r = session.get(url).json()
 
     if r['results']:
-        children_type = ter_class.territory_type+1
+        children_type = parent_class.territory_type+1
         res = pd.json_normalize(r['results'], max_level=0)
         fin = res[['territory_id','name','oktmo_code']].copy()
                                
@@ -172,7 +181,32 @@ def get_children(session, parent_id, ter_class):
             fin = fin.set_geometry('geometry').set_crs(epsg=4326)
         
         
-        fin.apply(child_to_class, ter_class=ter_class, axis=1)
+        fin.apply(child_to_class, parent_class=parent_class, axis=1)
+
+
+def child_to_class_onetry(x, parent_class):
+    child = Territory(x['territory_id'])
+    child.name = x['name']
+    child.oktmo = x['oktmo_code']
+    child.df['name'] = child.name
+    child.geometry = x['geometry']
+    child.territory_type = 4
+
+    child.parent = parent_class
+    parent_class.children.append(child)
+    
+
+def get_children_one_try(session, parent_class):
+    url = terr_api + f'api/v2/territories?parent_id={parent_class.territory_id}&get_all_levels=true&cities_only=true&page_size=10000'
+    r = session.get(url).json()
+    
+    if r['results']:
+        res = pd.json_normalize(r['results'], max_level=0)
+        fin = res[['territory_id','name','oktmo_code','parent']].copy()
+        fin.loc[:,'geometry'] = res['centre_point'].apply(lambda x: create_point(x))
+        fin = fin.set_geometry('geometry').set_crs(epsg=4326)
+        
+        fin.apply(child_to_class_onetry, parent_class=parent_class, axis=1)
         
         
 def detailed_migration(session, current_territory, fin_df):
