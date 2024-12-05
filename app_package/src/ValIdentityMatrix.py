@@ -13,10 +13,10 @@ import requests
 #для работы с json-файлами
 import json
 
-#terr_api = os.environ.get('TERRITORY_API')
+terr_api = os.environ.get('TERRITORY_API')
 
 def get_oktmo(territory_id):
-	URL = f"http://10.32.1.107:5300/api/v1/territory/{territory_id}"
+	URL = terr_api + f"/api/v1/territory/{territory_id}"
 	r = requests.get(url = URL)
 	return int(r.json()['oktmo_code'])
 
