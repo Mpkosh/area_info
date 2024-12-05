@@ -73,6 +73,31 @@
         }
       }
     },
+    "/regions/values_identities": {
+      "get": {
+        "tags": [
+          "Module 11"
+        ],
+        "summary": "Matrix of how satisfied are different values of different identity groups",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/territory_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/values_identities_matrix_200"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/migrations/main_info": {
       "get": {
         "tags": [
@@ -574,6 +599,97 @@
             "koeff_migration": {
               "type": "number",
               "example": 0
+            }
+          }
+        }
+      },
+      "values_identities_matrix_200": {
+        "title": "Sample",
+        "type": "object",
+        "properties": {
+          "comm": {
+            "type": "object",
+            "properties": {
+              "dev": {
+                "type": "number",
+                "example": null
+              },
+              "soc": {
+                "type": "number",
+                "example": 0
+              },
+              "bas": {
+                "type": "number",
+                "example": 0
+              }
+            }
+          },
+          "soc_workers": {
+            "type": "object",
+            "properties": {
+              "dev": {
+                "type": "number",
+                "example": null
+              },
+              "soc": {
+                "type": "number",
+                "example": 0
+              },
+              "bas": {
+                "type": "number",
+                "example": 0
+              }
+            }
+          },
+          "soc_old": {
+            "type": "object",
+            "properties": {
+              "dev": {
+                "type": "number",
+                "example": 0
+              },
+              "soc": {
+                "type": "number",
+                "example": 0
+              },
+              "bas": {
+                "type": "number",
+                "example": 0
+              }
+            }
+          },
+          "soc_parents": {
+            "type": "object",
+            "properties": {
+              "dev": {
+                "type": "number",
+                "example": 0
+              },
+              "soc": {
+                "type": "number",
+                "example": 0
+              },
+              "bas": {
+                "type": "number",
+                "example": 0
+              }
+            }
+          },
+          "loc": {
+            "type": "object",
+            "properties": {
+              "dev": {
+                "type": "number",
+                "example": 0
+              },
+              "soc": {
+                "type": "number",
+                "example": 0
+              },
+              "bas": {
+                "type": "number",
+                "example": 0
+              }
             }
           }
         }
