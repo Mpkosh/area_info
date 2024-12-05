@@ -10,7 +10,8 @@ from flask_cors import CORS, cross_origin
 from app_package.api import bp as bp_api
 from app_package.src import PreproDF, PopulationInfo, \
                             AreaOnMapFile, DensityInfo, \
-                            PopInfoForAPI, MigInfoForAPI
+                            PopInfoForAPI, MigInfoForAPI, \
+                            ValIdentityMatrix
 
 import pandas as pd
 import geopandas as gpd
@@ -346,3 +347,11 @@ def detailed_migr():
                                 detailed=True)
     return Response(result.to_json(orient="records"), 
                     mimetype='application/json')
+
+
+@bp_api.route('/regions/values_identities', methods=['GET'])
+@cross_origin()
+def values_identities():
+    territory_id = request.args.get('territory_id', type = int, default = 34)
+    result = ValIdentityMatrix.muni_tab(territory_id)
+    return Response(result, mimetype='application/json')
