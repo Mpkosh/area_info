@@ -9,6 +9,8 @@ from app_package.src import PreproDF, DemForecast
 
 social_api = os.environ.get('SOCIAL_API')
 terr_api = os.environ.get('TERRITORY_API')
+file_path = 'app_package/src/'
+
 
 def to_interval(x):
     x1, x2 = x.iloc[0], x.iloc[1]
@@ -126,7 +128,7 @@ def info(territory_id=34, show_level=3):
     if show_level==4:
         # восполняем тем, что есть; на всякий случай сортируем
         # print('Заполнение колонки pop_all с файла towns.geojson')
-        towns = gpd.read_file('app_package/src/towns.geojson')
+        towns = gpd.read_file(file_path+'towns.geojson')
         towns = towns.set_index('territory_id').loc[fin_df.territory_id].reset_index()
         fin_df['pop_all'] = towns[towns.territory_id.isin(fin_df.territory_id)]['population'].values
         fin_df['pop_all'] = fin_df['pop_all'].fillna(0)
@@ -248,7 +250,8 @@ def children_pop_dnst(session, parent_class, pop_and_dnst=True):
     try:
         territory_id = parent_class.territory_id
         url = terr_api + 'api/v2/territories'
-        params = {'parent_id':territory_id,'get_all_levels':'false','cities_only':'false','page_size':'1000'}
+        params = {'parent_id':territory_id,'get_all_levels':'false',
+                  'cities_only':'false','page_size':'1000'}
         r = session.get(url, params=params)
         res = pd.DataFrame(r.json()) 
         res = pd.json_normalize(res['results'], max_level=0)
@@ -272,7 +275,8 @@ def children_pop_dnst(session, parent_class, pop_and_dnst=True):
             pop_and_S = with_geom[['Численность населения',
                                    'Площадь территории, кв. км.']]
             fin['pop_all'] = pop_and_S['Численность населения']
-            fin['density'] = round(pop_and_S['Численность населения']/pop_and_S['Площадь территории, кв. км.'], 2)
+            fin['density'] = round(pop_and_S['Численность населения'
+                                             ]/pop_and_S['Площадь территории, кв. км.'], 2)
     else:
         fin['pop_all'] = 0
         fin['density'] = 0
@@ -422,7 +426,7 @@ def detailed_pop_info(territory_id=34):
     groups_df = pd.concat(r, axis=1).T
     
     # ____ Динамика и прогноз
-    folders={'popdir':'app_package/src/population_data/',
+    folders={'popdir':file_path+'population_data/',
              'file_name':'Ленинградская область.xlsx'}
     last_pop_year = pop_df.columns.levels[0][-1]
     forecast = DemForecast.MakeForecast(pop_df, last_pop_year, 
