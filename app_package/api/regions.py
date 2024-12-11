@@ -336,9 +336,11 @@ def main_migr():
     territory_id = request.args.get('territory_id', type = int, default=34)
     show_level = request.args.get('show_level', type = int, default=2)
     with_mig_dest = request.args.get('mig_destinations', type = is_it_true, default=False)
+    change_lo_level = request.args.get('change_lo_level', type = is_it_true, default=False)
     result = MigInfoForAPI.info(territory_id=territory_id, 
                                 show_level=show_level, 
-                                with_mig_dest=with_mig_dest)
+                                with_mig_dest=with_mig_dest,
+                                change_lo_level=change_lo_level)
     
     if with_mig_dest:
         fin_df, from_to_geom, from_to_lines = result

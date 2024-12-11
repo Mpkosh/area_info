@@ -63,19 +63,40 @@ def info_for_graph(territory_id, show_level=0, md_year=2022):
     fin_df['oktmo'] = [cl.oktmo for cl in terr_classes]
     fin_df['name'] = [cl.name for cl in terr_classes]
     fin_df['geometry'] = [cl.geometry for cl in terr_classes]
+    fin_df['parent_id'] = [cl.parent.territory_id for cl in terr_classes]
     
     return fin_df
 
 
 def info(territory_id, show_level=0, detailed=False, 
-         with_mig_dest=False, fill_in_4=False):
-    md_year = 2022
+         with_mig_dest=False, fill_in_4=False, md_year=2022, change_lo_level=False):
     session = requests.Session()
     current_territory = Territory(territory_id)
     main_info(session, current_territory, show_level)
     
     if detailed:
         #show_level = current_territory.territory_type
+        fin = pd.DataFrame([])
+        fin['territory_id'] = [current_territory.territory_id]
+        fin['oktmo'] = [current_territory.oktmo]
+        fin['name'] = [current_territory.name]
+        fin['geometry'] = [current_territory.geometry]
+        
+        # добавляем направления миграции
+        if with_mig_dest:
+            # для ЛО
+            lo2 = info_for_graph(1, 2, md_year)
+            lo2 = lo2[lo2.territory_id!=territory_id]
+
+            fin = pd.concat([lo2,fin[['geometry','territory_id',
+                                              'name','oktmo']]])
+            from_to_geom, from_to_lines = mig_destinations_df(fin[['geometry',
+                                                                   'territory_id',
+                                                                   'name','oktmo']], 
+                                                              md_year,
+                                                             [territory_id])
+            from_to_lines['to_territory_id'] = from_to_lines['to_territory_id'].astype(int)
+            
         fin_df = pd.DataFrame([])
         fin_df = detailed_migration(session, current_territory, fin_df)
         fin_df = fin_df.rename_axis('year').reset_index()
@@ -129,18 +150,21 @@ def info(territory_id, show_level=0, detailed=False,
             
         # добавляем направления миграции
         if with_mig_dest:
-            # для ЛО
-            lo2 = info_for_graph(1, 2, md_year)
-            lo2 = lo2[lo2.territory_id!=territory_id]
+            # для ЛО; для общей всегда 2 уровень
+            #lo = info_for_graph(1, show_level, md_year)
+            lo = gpd.read_file(file_path+f'info_for_graph_1_{show_level}.geojson').iloc[:,1:]
+            lo = lo[~lo.territory_id.isin(fin_df['territory_id'])]
 
-            fin = pd.concat([lo2,fin_df[['geometry','territory_id',
+            fin = pd.concat([lo,fin_df[['geometry','territory_id',
                                               'name','oktmo']]])
-            from_to_geom, from_to_lines = mig_destinations_df(fin[['geometry',
-                                                                   'territory_id',
-                                                                   'name','oktmo']], 
+            
+            from_to_geom, from_to_lines = mig_destinations_df(fin, 
                                                               md_year,
-                                                              fin_df.territory_id.unique())
+                                                             fin_df.territory_id.unique(),
+                                                             show_level,
+                                                             change_lo_level)
             from_to_lines['to_territory_id'] = from_to_lines['to_territory_id'].astype(int)
+            from_to_lines['from_territory_id'] = from_to_lines['from_territory_id'].astype(int)
         
         fin_df = main_migration(session, fin_df)    
         fin_df = main_factors(session, fin_df)
@@ -387,8 +411,11 @@ def mig_destinations(fin_df):
 
 
 # функция от А.Н.
-def mig_destinations_df(fin_df, md_year=2022, uniq_ids=[]):
-    fin_df_with_centre, q_fin = mig_destinations(fin_df)
+def mig_destinations_df(fin_df, md_year=2022, uniq_ids=[],
+                        show_level=3, change_lo_level=False):
+    fin_df_with_centre, q_fin = mig_destinations(fin_df[['geometry',
+                                                         'territory_id',
+                                                         'name','oktmo']])
     
     # данные по заданному году; нормируем
     yeartab = q_fin[q_fin.year==md_year].copy()
@@ -444,8 +471,59 @@ def mig_destinations_df(fin_df, md_year=2022, uniq_ids=[]):
     result = result[(result.from_territory_id.isin(uniq_ids)
                     )|(result.to_territory_id.isin(uniq_ids))
                    ]
+    
+    if (show_level-1 > 1)&(change_lo_level):
+        #lo2 = info_for_graph(1, show_level-1, md_year)
+        lo2 = gpd.read_file(file_path+f'info_for_graph_1_{show_level-1}.geojson').iloc[:,1:]
+        
+        lo_for_dict = fin_df[~fin_df.parent_id.isna()][['territory_id','parent_id'
+                         ]].merge(lo2[['territory_id','geometry']],
+                                  left_on='parent_id', right_on='territory_id',
+                                  how='left'
+                                 ).drop(columns=['territory_id_y']
+                                       ).set_index('territory_id_x')
+        
+        lo_for_dict['centroid'] = lo_for_dict.geometry.apply(lambda x: x.centroid)
+        dict_lo = lo_for_dict.to_dict()
+        
+        result = change_children_to_parents(result, dict_lo, uniq_ids)
+        
+        
     from_to_geom, from_to_lines = mig_dest_multipolygons(result, fin_df_with_centre)
     return from_to_geom, from_to_lines
+
+
+def change_children_to_parents(result, dict_lo, uniq_ids):
+    dict_lo_geom = dict_lo['geometry']
+    result.loc[~result['from_territory_id'].isin([*uniq_ids, 0]), 
+               'from_geometry'] = result[~result['from_territory_id'].isin([*uniq_ids, 0])
+                                            ]['from_territory_id'
+                                             ].apply(lambda x: dict_lo_geom[x])
+    result.loc[~result['to_territory_id'].isin([*uniq_ids, 0]), 
+               'to_geometry'] = result[~result['to_territory_id'].isin([*uniq_ids, 0])
+                                            ]['to_territory_id'
+                                             ].apply(lambda x: dict_lo_geom[x])
+
+    dict_lo_centroid = dict_lo['centroid']
+    result.loc[~result['from_territory_id'].isin([*uniq_ids, 0]), 
+               'from_centroid'] = result[~result['from_territory_id'].isin([*uniq_ids, 0])
+                                            ]['from_territory_id'
+                                             ].apply(lambda x: dict_lo_centroid[x])
+    result.loc[~result['to_territory_id'].isin([*uniq_ids, 0]), 
+               'to_centroid'] = result[~result['to_territory_id'].isin([*uniq_ids, 0])
+                                            ]['to_territory_id'
+                                             ].apply(lambda x: dict_lo_centroid[x])
+
+    dict_lo_parents = dict_lo['parent_id']
+    result.loc[~result['from_territory_id'].isin([*uniq_ids, 0]), 
+               'from_territory_id'] = result[~result['from_territory_id'].isin([*uniq_ids, 0])
+                                            ]['from_territory_id'
+                                             ].apply(lambda x: dict_lo_parents[x])
+    result.loc[~result['to_territory_id'].isin([*uniq_ids, 0]), 
+               'to_territory_id'] = result[~result['to_territory_id'].isin([*uniq_ids, 0])
+                                            ]['to_territory_id'
+                                             ].apply(lambda x: dict_lo_parents[x])
+    return result
 
 
 def mig_dest_multipolygons(result, fin_df_with_centre):

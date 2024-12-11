@@ -114,6 +114,9 @@
           },
           {
             "$ref": "#/components/parameters/mig_destinations"
+          },
+          {
+            "$ref": "#/components/parameters/change_lo_level"
           }
         ],
         "responses": {
@@ -400,6 +403,16 @@
         "default": false,
         "in": "query",
         "description": "Include migration destinations info.",
+        "required": false,
+        "schema": {
+          "type": "bool"
+        }
+      },
+      "change_lo_level": {
+        "name": "change_lo_level",
+        "default": false,
+        "in": "query",
+        "description": "Make LO show level higher for mig destinations.",
         "required": false,
         "schema": {
           "type": "bool"
