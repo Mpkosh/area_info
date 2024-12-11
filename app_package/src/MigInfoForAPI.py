@@ -37,7 +37,39 @@ def create_point(x):
     return Point(x['coordinates'])       
 
 
-def info(territory_id, show_level=0, detailed=False, with_mig_dest=False):
+def info_for_graph(territory_id, show_level=0, md_year=2022):
+    session = requests.Session()
+    current_territory = Territory(territory_id)
+    main_info(session, current_territory, show_level)
+    
+    if show_level < current_territory.territory_type:
+        raise ValueError(f'Show level (given: {show_level}) must be >= territory type (given: {current_territory.territory_type})')
+
+    n_children = show_level - current_territory.territory_type
+    terr_classes = [current_territory]
+    terr_ids = current_territory.df['territory_id'].values
+    # если нужен уровень детальнее
+    for i in range(n_children):
+        for ter_id, ter_class in zip(terr_ids, terr_classes):
+            get_children(session, ter_id, ter_class)
+        # новый набор для итерации    
+        terr_classes = [child for one_class in terr_classes for child in one_class.children]
+        # новые id тер-рий
+        terr_ids = [one_class.territory_id for one_class in terr_classes]
+
+    # all final children in <terr_classes>    
+    fin_df = pd.DataFrame([])
+    fin_df['territory_id'] = [cl.territory_id for cl in terr_classes]
+    fin_df['oktmo'] = [cl.oktmo for cl in terr_classes]
+    fin_df['name'] = [cl.name for cl in terr_classes]
+    fin_df['geometry'] = [cl.geometry for cl in terr_classes]
+    
+    return fin_df
+
+
+def info(territory_id, show_level=0, detailed=False, 
+         with_mig_dest=False, fill_in_4=False):
+    md_year = 2022
     session = requests.Session()
     current_territory = Territory(territory_id)
     main_info(session, current_territory, show_level)
@@ -56,7 +88,6 @@ def info(territory_id, show_level=0, detailed=False, with_mig_dest=False):
         n_children = show_level - current_territory.territory_type
         terr_classes = [current_territory]
         terr_ids = current_territory.df['territory_id'].values
-        
         
         
         if show_level == 4:
@@ -80,37 +111,47 @@ def info(territory_id, show_level=0, detailed=False, with_mig_dest=False):
         fin_df['oktmo'] = [cl.oktmo for cl in terr_classes]
         fin_df['name'] = [cl.name for cl in terr_classes]
         fin_df['geometry'] = [cl.geometry for cl in terr_classes]
-        '''
-        if show_level==4:
+        
+        if (show_level==4)&(fill_in_4):
             # восполняем тем, что есть; на всякий случай сортируем
             # print('Заполнение колонки pop_all с файла towns.geojson')
             towns = gpd.read_file(file_path+'towns.geojson')
             towns = towns.set_index('territory_id').loc[fin_df.territory_id].reset_index()
             fin_df['pop_all'] = towns[towns.territory_id.isin(fin_df.territory_id)]['population'].values
             fin_df['pop_all'] = fin_df['pop_all'].fillna(0)
-            
             for child in terr_classes:
                 child.pop_all = fin_df[fin_df.territory_id==child.territory_id]['pop_all'].values[0]
-                change = False
-        '''
+    
         
         # у ЛО нет октмо в БД
         with pd.option_context("future.no_silent_downcasting", True):
             fin_df['oktmo'] = fin_df['oktmo'].fillna(0)
+            
+        # добавляем направления миграции
+        if with_mig_dest:
+            # для ЛО
+            lo2 = info_for_graph(1, 2, md_year)
+            lo2 = lo2[lo2.territory_id!=territory_id]
+
+            fin = pd.concat([lo2,fin_df[['geometry','territory_id',
+                                              'name','oktmo']]])
+            from_to_geom, from_to_lines = mig_destinations_df(fin[['geometry',
+                                                                   'territory_id',
+                                                                   'name','oktmo']], 
+                                                              md_year)
+            from_to_lines['to_territory_id'] = from_to_lines['to_territory_id'].astype(int)
+        
         fin_df = main_migration(session, fin_df)    
         fin_df = main_factors(session, fin_df)
         
-        if with_mig_dest:
-            md_year=2022
-            from_to_geom, from_to_lines = mig_destinations_df(fin_df[['geometry',
-                                                                      'territory_id',
-                                                                      'name','oktmo']], 
-                                         md_year)
-            return [fin_df.drop(columns=['oktmo']).fillna(0), 
-                    from_to_geom, from_to_lines]
-        
-        else:
-            return fin_df.drop(columns=['oktmo']).fillna(0)
+    if 'oktmo' in fin_df.columns:
+        fin_df = fin_df.drop(columns=['oktmo']).fillna(0) 
+            
+    if with_mig_dest:
+        return [fin_df, from_to_geom, from_to_lines]
+
+    else:
+        return fin_df
     
 
 def main_factors(session, fin_df):
@@ -263,6 +304,10 @@ def detailed_migration(session, current_territory, fin_df):
     needed_part = df[(df.oktmo.isin([oktmo]))&(df.vozr=='Всего')]
     area_part = needed_part.sort_values(by=['year','migr']
                                          ).drop_duplicates(['year','migr','municipality'])
+    # чтобы при группировке отсутствующие категории все равно указывались
+    area_part.migr = pd.Categorical(area_part.migr, 
+                                categories=area_part.migr.unique(), 
+                                ordered=True)
     arr = area_part.groupby(['year','migr']
                            ).sum()[['in_value','out_value']].values.flatten()
     

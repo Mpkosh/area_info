@@ -111,6 +111,9 @@
           },
           {
             "$ref": "#/components/parameters/show_level"
+          },
+          {
+            "$ref": "#/components/parameters/mig_destinations"
           }
         ],
         "responses": {
@@ -326,7 +329,7 @@
         "name": "parent_id",
         "default": 34,
         "in": "query",
-        "description": "Parent id of desired areas. *Example: 34*",
+        "description": "Parent id of desired areas.",
         "required": true,
         "schema": {
           "type": "integer"
@@ -336,7 +339,7 @@
         "name": "territory_id",
         "default": 34,
         "in": "query",
-        "description": "Territory id. *Example: 34*",
+        "description": "Territory id.",
         "required": true,
         "schema": {
           "type": "integer"
@@ -345,7 +348,7 @@
       "last_only": {
         "name": "last_only",
         "in": "query",
-        "description": "To show only last year info. *Example: True*",
+        "description": "To show only last year info.",
         "required": false,
         "default": true,
         "schema": {
@@ -356,7 +359,7 @@
         "name": "show_level",
         "default": 2,
         "in": "query",
-        "description": "Territory levels to show. *Example: 2*",
+        "description": "Territory levels to show.",
         "required": true,
         "schema": {
           "type": "integer"
@@ -364,8 +367,9 @@
       },
       "okato_id": {
         "name": "okato_id",
+        "default": 41206000000,
         "in": "query",
-        "description": "OKATO id of the area. *Example: 41206000000*",
+        "description": "OKATO id of the area.",
         "required": true,
         "schema": {
           "type": "string"
@@ -375,7 +379,7 @@
         "name": "given_year",
         "default": 2020,
         "in": "query",
-        "description": "Data for a given year. *Example: 2020*",
+        "description": "Data for a given year",
         "required": true,
         "schema": {
           "type": "integer"
@@ -385,10 +389,20 @@
         "name": "n_age_groups",
         "default": 5,
         "in": "query",
-        "description": "Number of ages in an age interval. *Defualt: 5*",
+        "description": "Number of ages in an age interval",
         "required": false,
         "schema": {
           "type": "integer"
+        }
+      },
+      "mig_destinations": {
+        "name": "mig_destinations",
+        "default": false,
+        "in": "query",
+        "description": "Include migration destinations info.",
+        "required": false,
+        "schema": {
+          "type": "bool"
         }
       }
     },
