@@ -138,7 +138,8 @@ def info(territory_id, show_level=0, detailed=False,
             from_to_geom, from_to_lines = mig_destinations_df(fin[['geometry',
                                                                    'territory_id',
                                                                    'name','oktmo']], 
-                                                              md_year)
+                                                              md_year,
+                                                              fin_df.territory_id.unique())
             from_to_lines['to_territory_id'] = from_to_lines['to_territory_id'].astype(int)
         
         fin_df = main_migration(session, fin_df)    
@@ -386,7 +387,7 @@ def mig_destinations(fin_df):
 
 
 # функция от А.Н.
-def mig_destinations_df(fin_df, md_year=2022):
+def mig_destinations_df(fin_df, md_year=2022, uniq_ids=[]):
     fin_df_with_centre, q_fin = mig_destinations(fin_df)
     
     # данные по заданному году; нормируем
@@ -438,7 +439,11 @@ def mig_destinations_df(fin_df, md_year=2022):
                       right_on='territory_id', how='left'
                          ).rename(columns={'geometry':'to_geometry',
                                        'centroid':'to_centroid'}
-                                 ).drop(columns=['territory_id'])                                     
+                                 ).drop(columns=['territory_id'])
+    # убираем линии миграции у вспомогательных районов
+    result = result[(result.from_territory_id.isin(uniq_ids)
+                    )|(result.to_territory_id.isin(uniq_ids))
+                   ]
     from_to_geom, from_to_lines = mig_dest_multipolygons(result, fin_df_with_centre)
     return from_to_geom, from_to_lines
 

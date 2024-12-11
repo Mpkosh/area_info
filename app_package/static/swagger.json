@@ -104,7 +104,7 @@
           "Module 21"
         ],
         "summary": "Migration information (recent year): num in/out, factors",
-        "description": "Inflow of <young / able to work / old> migrants; <br>  Outflow of <young / able to work / old> migrants; <br> Migration factors: avgemployers, avgsalary, ...",
+        "description": "Inflow of <young / able to work / old> migrants; <br>  Outflow of <young / able to work / old> migrants; <br> Migration factors: avgemployers, avgsalary, ... <br> if mig_destinations=True => + geojson with polygons, geojson with lines",
         "parameters": [
           {
             "$ref": "#/components/parameters/territory_id"
