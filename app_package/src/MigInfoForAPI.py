@@ -82,6 +82,7 @@ def info(territory_id, show_level=0, detailed=False,
         fin['name'] = [current_territory.name]
         fin['geometry'] = [current_territory.geometry]
         
+        '''
         # добавляем направления миграции
         if with_mig_dest:
             # для ЛО
@@ -96,7 +97,8 @@ def info(territory_id, show_level=0, detailed=False,
                                                               md_year,
                                                              [territory_id])
             from_to_lines['to_territory_id'] = from_to_lines['to_territory_id'].astype(int)
-            
+        '''    
+        
         fin_df = pd.DataFrame([])
         fin_df = detailed_migration(session, current_territory, fin_df)
         fin_df = fin_df.rename_axis('year').reset_index()
@@ -150,21 +152,59 @@ def info(territory_id, show_level=0, detailed=False,
             
         # добавляем направления миграции
         if with_mig_dest:
-            # для ЛО; для общей всегда 2 уровень
-            #lo = info_for_graph(1, show_level, md_year)
-            lo = gpd.read_file(file_path+f'info_for_graph_1_{show_level}.geojson').iloc[:,1:]
-            lo = lo[~lo.territory_id.isin(fin_df['territory_id'])]
+            df_with_geom = pd.read_csv(file_path+'lo_3_parents.csv', index_col=0)
+            prepared_lo = pd.read_csv(file_path+f'graph_LO_{show_level}level_nogeom.csv',index_col=0)
+            # убираем линии миграции у вспомогательных районов
+            uniq_ids = fin_df.territory_id.unique()
+            result = prepared_lo[(prepared_lo.from_territory_id.isin(uniq_ids)
+                            )|(prepared_lo.to_territory_id.isin(uniq_ids))
+                           ]
 
-            fin = pd.concat([lo,fin_df[['geometry','territory_id',
-                                              'name','oktmo']]])
+            if show_level==2:
+                # взять только колонки _parent и поменять названия
+                df_with_geom = df_with_geom.iloc[:,4:].drop_duplicates()
+                df_with_geom.columns = ['territory_id','oktmo','name','geometry']
             
-            from_to_geom, from_to_lines = mig_destinations_df(fin, 
-                                                              md_year,
-                                                             fin_df.territory_id.unique(),
-                                                             show_level,
-                                                             change_lo_level)
-            from_to_lines['to_territory_id'] = from_to_lines['to_territory_id'].astype(int)
-            from_to_lines['from_territory_id'] = from_to_lines['from_territory_id'].astype(int)
+            df_with_geom.loc[:,'geometry'] = gpd.GeoSeries.from_wkt(df_with_geom['geometry'].astype(str))
+            df_with_geom.loc[:,'centroid'] = df_with_geom.geometry.apply(lambda x: x.centroid)
+            
+            # мерджим, чтобы добавить инф-ию по id и geometry
+            #  для узла "откуда"
+            result = result.merge(df_with_geom[['territory_id','geometry','centroid']], 
+                              left_on='from_territory_id', 
+                              right_on='territory_id', how='left'
+                              ).rename(columns={'geometry':'from_geometry',
+                                               'centroid':'from_centroid'}
+                                      ).drop(columns=['territory_id'])
+            #  для узла "куда"
+            result = result.merge(df_with_geom[['territory_id','geometry','centroid']], 
+                              left_on='to_territory_id', 
+                              right_on='territory_id', how='left'
+                                 ).rename(columns={'geometry':'to_geometry',
+                                               'centroid':'to_centroid'}
+                                         ).drop(columns=['territory_id'])
+
+            if (show_level-1 > 1)&(change_lo_level):
+                lo_for_dict = df_with_geom[['territory_id','territory_id_parent',
+                            'geometry_parent']]
+                lo_for_dict.loc[:,'geometry_parent'] = gpd.GeoSeries.from_wkt(
+                    lo_for_dict['geometry_parent'].astype(str))
+                lo_for_dict.loc[:,'centroid'] = lo_for_dict.geometry_parent.apply(lambda x: x.centroid)
+                dict_lo = lo_for_dict.set_index('territory_id').to_dict()
+
+                result = change_children_to_parents(result, dict_lo, uniq_ids)
+                # заменяем наш дф с геометрией детей-родителей;
+                # для нерассматриваемых id заменяем на территорию выше
+                bool_idx = ~df_with_geom.territory_id.isin(uniq_ids)
+                df_with_geom.loc[bool_idx, df_with_geom.columns[:4]
+                                ] = df_with_geom.loc[bool_idx, df_with_geom.columns[4:-1]].values
+                df_with_geom = df_with_geom.drop_duplicates()
+                
+            from_to_geom, from_to_lines = mig_dest_multipolygons(result, df_with_geom)
+            from_to_geom = from_to_geom.drop_duplicates()
+            from_to_lines = from_to_lines.drop_duplicates()
+            from_to_lines.loc[:,'to_territory_id'] = from_to_lines['to_territory_id'].astype(int)
+            from_to_lines.loc[:,'from_territory_id'] = from_to_lines['from_territory_id'].astype(int)
         
         fin_df = main_migration(session, fin_df)    
         fin_df = main_factors(session, fin_df)
@@ -173,7 +213,9 @@ def info(territory_id, show_level=0, detailed=False,
         fin_df = fin_df.drop(columns=['oktmo']).fillna(0) 
             
     if with_mig_dest:
-        return [fin_df, from_to_geom, from_to_lines]
+        
+        return [gpd.GeoDataFrame(fin_df), from_to_geom, 
+                gpd.GeoDataFrame(from_to_lines, geometry='line')]
 
     else:
         return fin_df
@@ -365,7 +407,7 @@ def detailed_factors(session, current_territory, fin_df):
 
 
 # _________ Направления миграции _________
-
+'''
 def mig_destinations(fin_df):
     fin_df = fin_df.copy()
     # широта и долгота центральной точки
@@ -411,6 +453,7 @@ def mig_destinations(fin_df):
 
 
 # функция от А.Н.
+
 def mig_destinations_df(fin_df, md_year=2022, uniq_ids=[],
                         show_level=3, change_lo_level=False):
     fin_df_with_centre, q_fin = mig_destinations(fin_df[['geometry',
@@ -491,10 +534,10 @@ def mig_destinations_df(fin_df, md_year=2022, uniq_ids=[],
         
     from_to_geom, from_to_lines = mig_dest_multipolygons(result, fin_df_with_centre)
     return from_to_geom, from_to_lines
-
+'''
 
 def change_children_to_parents(result, dict_lo, uniq_ids):
-    dict_lo_geom = dict_lo['geometry']
+    dict_lo_geom = dict_lo['geometry_parent']
     result.loc[~result['from_territory_id'].isin([*uniq_ids, 0]), 
                'from_geometry'] = result[~result['from_territory_id'].isin([*uniq_ids, 0])
                                             ]['from_territory_id'
@@ -514,7 +557,7 @@ def change_children_to_parents(result, dict_lo, uniq_ids):
                                             ]['to_territory_id'
                                              ].apply(lambda x: dict_lo_centroid[x])
 
-    dict_lo_parents = dict_lo['parent_id']
+    dict_lo_parents = dict_lo['territory_id_parent']
     result.loc[~result['from_territory_id'].isin([*uniq_ids, 0]), 
                'from_territory_id'] = result[~result['from_territory_id'].isin([*uniq_ids, 0])
                                             ]['from_territory_id'
@@ -541,7 +584,9 @@ def mig_dest_multipolygons(result, fin_df_with_centre):
     from_to_geom = from_to_summed.merge(fin_df_with_centre[['territory_id','geometry'
                                                        ]], how='left')
     from_to_geom.territory_id = from_to_geom.territory_id.astype(int)
-    #.to_json()
+    from_to_geom.loc[1:, 'geometry'] = gpd.GeoSeries.from_wkt(from_to_geom['geometry'
+                                                           ].iloc[1:].astype(str))
+    from_to_geom = gpd.GeoDataFrame(from_to_geom, geometry='geometry')
     
     # собираем в формат: линия, октуда, куда, сколько людей
     # longitude, latitude
@@ -549,13 +594,15 @@ def mig_dest_multipolygons(result, fin_df_with_centre):
                                      [55.75918327956314])[0]
     result.loc[result['from_territory_id']==0, 'from_centroid'] = outer_point
     result.loc[result['to_territory_id']==0, 'to_centroid'] = outer_point
-    result['line'] = result.apply(lambda x: LineString([x['from_centroid'], 
+    result.loc[:,'from_centroid'] = gpd.GeoSeries.from_wkt(result['from_centroid'].astype(str))
+    result.loc[:,'to_centroid'] = gpd.GeoSeries.from_wkt(result['to_centroid'].astype(str))
+
+    result.loc[:,'line'] = result.apply(lambda x: LineString([x['from_centroid'], 
                                          x['to_centroid']]), axis=1)
 
     from_to_lines = result[['from_territory_id','to_territory_id','n_people','line']]
     from_to_lines.loc[:,'from_territory_id'] = from_to_lines.from_territory_id.astype(int)
     from_to_lines.loc[:,'to_territory_id'] = from_to_lines.to_territory_id.astype(int)
-    #from_to_lines = gpd.GeoDataFrame(from_to_lines, geometry='line')#.to_json()
     
     return [from_to_geom, from_to_lines]
 
