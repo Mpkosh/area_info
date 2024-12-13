@@ -104,13 +104,19 @@
           "Module 21"
         ],
         "summary": "Migration information (recent year): num in/out, factors",
-        "description": "Inflow of <young / able to work / old> migrants; <br>  Outflow of <young / able to work / old> migrants; <br> Migration factors: avgemployers, avgsalary, ...",
+        "description": "Inflow of <young / able to work / old> migrants; <br>  Outflow of <young / able to work / old> migrants; <br> Migration factors: avgemployers, avgsalary, ... <br> if mig_destinations=True => + geojson with polygons, geojson with lines",
         "parameters": [
           {
             "$ref": "#/components/parameters/territory_id"
           },
           {
             "$ref": "#/components/parameters/show_level"
+          },
+          {
+            "$ref": "#/components/parameters/mig_destinations"
+          },
+          {
+            "$ref": "#/components/parameters/change_lo_level"
           }
         ],
         "responses": {
@@ -133,11 +139,20 @@
           "Module 21"
         ],
         "summary": "Migration detailed information (all years): num in/out, types, factors",
-        "description": "Inflow of <across russia / outside region / inside region /  international / interregional / all / other countries / CIS counries> migrants; <br>  Outflow of the same migrants; <br> Migration factors: avgemployers, avgsalary, ... <br><br> // В пределах России, Внешняя (для региона) миграция, Внутрирегиональная,  Международная, Межрегиональная, Миграция всего,  С другими зарубежными странами, Со странами СНГ",
+        "description": "Inflow of <across russia / outside region / inside region /  international / interregional / all / other countries / CIS counries> migrants; <br>  Outflow of the same migrants; <br> Migration factors: avgemployers, avgsalary, ... <br><br> // В пределах России, Внешняя (для региона) миграция, Внутрирегиональная,  Международная, Межрегиональная, Миграция всего,  С другими зарубежными странами, Со странами СНГ<br>if mig_destinations=True => + geojson with polygons, geojson with lines",
         "parameters": [
           {
             "$ref": "#/components/parameters/territory_id"
-          }
+          },
+          {
+            "$ref": "#/components/parameters/mig_destinations"
+          },
+          {
+            "$ref": "#/components/parameters/change_lo_level"
+          },
+          {
+            "$ref": "#/components/parameters/given_year"
+          },
         ],
         "responses": {
           "200": {
@@ -146,7 +161,7 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/mig_detailed_info_200"
-                }
+                },
               }
             }
           }
@@ -326,7 +341,7 @@
         "name": "parent_id",
         "default": 34,
         "in": "query",
-        "description": "Parent id of desired areas. *Example: 34*",
+        "description": "Parent id of desired areas.",
         "required": true,
         "schema": {
           "type": "integer"
@@ -336,7 +351,7 @@
         "name": "territory_id",
         "default": 34,
         "in": "query",
-        "description": "Territory id. *Example: 34*",
+        "description": "Territory id.",
         "required": true,
         "schema": {
           "type": "integer"
@@ -345,7 +360,7 @@
       "last_only": {
         "name": "last_only",
         "in": "query",
-        "description": "To show only last year info. *Example: True*",
+        "description": "To show only last year info.",
         "required": false,
         "default": true,
         "schema": {
@@ -356,7 +371,7 @@
         "name": "show_level",
         "default": 2,
         "in": "query",
-        "description": "Territory levels to show. *Example: 2*",
+        "description": "Territory levels to show.",
         "required": true,
         "schema": {
           "type": "integer"
@@ -364,8 +379,9 @@
       },
       "okato_id": {
         "name": "okato_id",
+        "default": 41206000000,
         "in": "query",
-        "description": "OKATO id of the area. *Example: 41206000000*",
+        "description": "OKATO id of the area.",
         "required": true,
         "schema": {
           "type": "string"
@@ -375,7 +391,7 @@
         "name": "given_year",
         "default": 2020,
         "in": "query",
-        "description": "Data for a given year. *Example: 2020*",
+        "description": "Data for a given year",
         "required": true,
         "schema": {
           "type": "integer"
@@ -385,12 +401,32 @@
         "name": "n_age_groups",
         "default": 5,
         "in": "query",
-        "description": "Number of ages in an age interval. *Defualt: 5*",
+        "description": "Number of ages in an age interval",
         "required": false,
         "schema": {
           "type": "integer"
         }
-      }
+      },
+      "mig_destinations": {
+        "name": "mig_destinations",
+        "default": false,
+        "in": "query",
+        "description": "Include migration destinations info.",
+        "required": false,
+        "schema": {
+          "type": "bool"
+        }
+      },
+      "change_lo_level": {
+        "name": "change_lo_level",
+        "default": true,
+        "in": "query",
+        "description": "Group auxiliary areas one level higher.",
+        "required": false,
+        "schema": {
+          "type": "bool"
+        }
+      },
     },
     "schemas": {
       "404": {

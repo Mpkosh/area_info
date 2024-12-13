@@ -34,7 +34,6 @@ def zero_to_docs():
     return redirect("/api/docs", code=302)
 
 
-
 @bp_api.route('/here')
 @cross_origin()
 def index():
@@ -52,6 +51,10 @@ def func(x):
         return f'{int(x1)}-{int(x2)}'
     else:
         return int(x1)
+
+
+def is_it_true(value):
+  return value.lower() == 'true'
 
 
 @bp_api.route('/regions/pyramid_data', methods=['GET'])
@@ -173,7 +176,7 @@ def create_polygon(coordinates):
 def density_data():
     parent_id = request.args.get('parent_id', type = str, default=34)
     given_year = request.args.get('given_year', type = int, default=2020)
-    last_only = request.args.get('last_only', type = bool, default=True)
+    last_only = request.args.get('last_only', type = is_it_true, default=True)
     
     try:
         # берем координаты территорий внутри заданной 
@@ -326,27 +329,49 @@ def detailed_info():
 
 #____________ OFFICIAL F21
 
+
 @bp_api.route('/migrations/main_info', methods=['GET'])
 @cross_origin()
 def main_migr():
     territory_id = request.args.get('territory_id', type = int, default=34)
     show_level = request.args.get('show_level', type = int, default=2)
-    
+    with_mig_dest = request.args.get('mig_destinations', type = is_it_true, default=False)
+    change_lo_level = request.args.get('change_lo_level', type = is_it_true, default=True)
     result = MigInfoForAPI.info(territory_id=territory_id, 
-                                show_level=show_level)
-    return Response(result.set_geometry('geometry').to_json(), 
-                    mimetype='application/json')
+                                show_level=show_level, 
+                                with_mig_dest=with_mig_dest,
+                                change_lo_level=change_lo_level)
+    
+    if with_mig_dest:
+        fin_df, from_to_geom, from_to_lines = result
+        fin_df = gpd.GeoDataFrame(fin_df).set_geometry('geometry')
+        from_to_geom = from_to_geom.set_geometry('geometry')
+        from_to_lines = from_to_lines.set_geometry('line')
+        return [fin_df.to_json(), from_to_lines.to_json(), from_to_lines.to_json()]
+    else:
+        return Response(result.set_geometry('geometry').to_json(), 
+                        mimetype='application/json')
 
 
 @bp_api.route('/migrations/detailed_info', methods=['GET'])
 @cross_origin()
 def detailed_migr():
     territory_id = request.args.get('territory_id', type = int, default=34)
-    
+    with_mig_dest = request.args.get('mig_destinations', type = is_it_true, default=False)
+    md_year = request.args.get('given_year', type = int, default=2022)
     result = MigInfoForAPI.info(territory_id=territory_id, 
-                                detailed=True)
-    return Response(result.to_json(orient="records"), 
-                    mimetype='application/json')
+                                detailed=True, 
+                                with_mig_dest=with_mig_dest,
+                                md_year=md_year)
+                            
+    if with_mig_dest:
+        fin_df, from_to_geom, from_to_lines = result
+        from_to_geom = from_to_geom.set_geometry('geometry')
+        from_to_lines = from_to_lines.set_geometry('line')
+        return [fin_df.to_json(orient="records"), from_to_lines.to_json(), from_to_lines.to_json()]
+    else:
+        return Response(result.to_json(orient="records"), 
+                        mimetype='application/json')
 
 
 @bp_api.route('/regions/values_identities', methods=['GET'])
