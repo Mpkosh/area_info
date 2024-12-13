@@ -14,7 +14,7 @@ import numpy as np
 import geopandas as gpd
 from shapely.geometry import Point, LineString
 import os
-import networkx as nx
+#import networkx as nx
 from itertools import permutations
 
 
@@ -43,7 +43,7 @@ def info_for_graph(territory_id, show_level=0, md_year=2022):
     main_info(session, current_territory, show_level)
     
     if show_level < current_territory.territory_type:
-        raise ValueError(f'Show level (given: {show_level}) must be >= territory type (given: {current_territory.territory_type})')
+        raise ValueError(f'Show level must be >= territory type; given show_level={show_level} and territory_type={current_territory.territory_type}')
 
     n_children = show_level - current_territory.territory_type
     terr_classes = [current_territory]
@@ -69,11 +69,17 @@ def info_for_graph(territory_id, show_level=0, md_year=2022):
 
 
 def info(territory_id, show_level=0, detailed=False, 
-         with_mig_dest=False, fill_in_4=False, md_year=2022, change_lo_level=False):
+         with_mig_dest=False, fill_in_4=False, md_year=2022, change_lo_level=True):
     session = requests.Session()
     current_territory = Territory(territory_id)
     main_info(session, current_territory, show_level)
     
+    if with_mig_dest & (show_level == 4):
+        raise NotImplementedError('Migration destinations for show_level=4 are not available yet')
+        
+    if md_year not in [2019,2020,2021,2022]:
+        raise ValueError(f'Migration destinations are available for years 2019-2022, given {md_year}')
+            
     if detailed:
         #show_level = current_territory.territory_type
         fin = pd.DataFrame([])
@@ -82,43 +88,13 @@ def info(territory_id, show_level=0, detailed=False,
         fin['name'] = [current_territory.name]
         fin['geometry'] = [current_territory.geometry]
         
-        '''
         # добавляем направления миграции
         if with_mig_dest:
-            # для ЛО
-            lo2 = info_for_graph(1, 2, md_year)
-            lo2 = lo2[lo2.territory_id!=territory_id]
-
-            fin = pd.concat([lo2,fin[['geometry','territory_id',
-                                              'name','oktmo']]])
-            from_to_geom, from_to_lines = mig_destinations_df(fin[['geometry',
-                                                                   'territory_id',
-                                                                   'name','oktmo']], 
-                                                              md_year,
-                                                             [territory_id])
-            from_to_lines['to_territory_id'] = from_to_lines['to_territory_id'].astype(int)
-        '''    
-        
-        fin_df = pd.DataFrame([])
-        fin_df = detailed_migration(session, current_territory, fin_df)
-        fin_df = fin_df.rename_axis('year').reset_index()
-        fin_df = detailed_factors(session, current_territory, fin_df)
-        
-    else:
-        if show_level < current_territory.territory_type:
-            raise ValueError(f'Show level (given: {show_level}) must be >= territory type (given: {current_territory.territory_type})')
-
-        n_children = show_level - current_territory.territory_type
-        terr_classes = [current_territory]
-        terr_ids = current_territory.df['territory_id'].values
-        
-        
-        if show_level == 4:
-            get_children_one_try(session, current_territory)
-            terr_classes = current_territory.children
-            terr_ids = [one_class.territory_id for one_class in terr_classes]
-            
-        else:    
+            # собираем территории того же родителя
+            n_children = 1
+            current_territory.parent.territory_type = current_territory.territory_type-1
+            terr_classes = [current_territory.parent]
+            terr_ids = [current_territory.parent.territory_id]
             # если нужен уровень детальнее
             for i in range(n_children):
                 for ter_id, ter_class in zip(terr_ids, terr_classes):
@@ -127,6 +103,39 @@ def info(territory_id, show_level=0, detailed=False,
                 terr_classes = [child for one_class in terr_classes for child in one_class.children]
                 # новые id тер-рий
                 terr_ids = [one_class.territory_id for one_class in terr_classes]
+
+            siblings = pd.DataFrame([])
+            siblings['territory_id'] = [cl.territory_id for cl in terr_classes]
+            siblings['oktmo'] = [cl.oktmo for cl in terr_classes]
+            siblings['name'] = [cl.name for cl in terr_classes]
+            siblings['geometry'] = [cl.geometry for cl in terr_classes]
+
+            show_level = terr_classes[0].territory_type
+            from_to_geom, from_to_lines = mig_dest_prepared(show_level=show_level, 
+                                                            fin_df=fin, siblings=siblings, 
+                                                            change_lo_level=change_lo_level,
+                                                           md_year=md_year)
+
+        fin_df = pd.DataFrame([])
+        fin_df = detailed_migration(session, current_territory, fin_df)
+        fin_df = fin_df.rename_axis('year').reset_index()
+        fin_df = detailed_factors(session, current_territory, fin_df)
+      
+    else:
+        if show_level < current_territory.territory_type:
+            raise ValueError(f'Show level must be >= territory type; given show_level={show_level} and territory_type={current_territory.territory_type}')
+
+        n_children = show_level - current_territory.territory_type
+        terr_classes = [current_territory]
+        terr_ids = current_territory.df['territory_id'].values
+        # если нужен уровень детальнее
+        for i in range(n_children):
+            for ter_id, ter_class in zip(terr_ids, terr_classes):
+                get_children(session, ter_id, ter_class)
+            # новый набор для итерации    
+            terr_classes = [child for one_class in terr_classes for child in one_class.children]
+            # новые id тер-рий
+            terr_ids = [one_class.territory_id for one_class in terr_classes]
 
         # all final children in <terr_classes>    
         fin_df = pd.DataFrame([])
@@ -138,83 +147,58 @@ def info(territory_id, show_level=0, detailed=False,
         if (show_level==4)&(fill_in_4):
             # восполняем тем, что есть; на всякий случай сортируем
             # print('Заполнение колонки pop_all с файла towns.geojson')
-            towns = gpd.read_file(file_path+'towns.geojson')
+            towns = gpd.read_file('towns.geojson')
             towns = towns.set_index('territory_id').loc[fin_df.territory_id].reset_index()
             fin_df['pop_all'] = towns[towns.territory_id.isin(fin_df.territory_id)]['population'].values
             fin_df['pop_all'] = fin_df['pop_all'].fillna(0)
             for child in terr_classes:
                 child.pop_all = fin_df[fin_df.territory_id==child.territory_id]['pop_all'].values[0]
-    
-        
+                
         # у ЛО нет октмо в БД
         with pd.option_context("future.no_silent_downcasting", True):
             fin_df['oktmo'] = fin_df['oktmo'].fillna(0)
-            
+        
         # добавляем направления миграции
         if with_mig_dest:
-            df_with_geom = pd.read_csv(file_path+'lo_3_parents.csv', index_col=0)
-            prepared_lo = pd.read_csv(file_path+f'graph_LO_{show_level}level_nogeom.csv',index_col=0)
-            # убираем линии миграции у вспомогательных районов
-            uniq_ids = fin_df.territory_id.unique()
-            result = prepared_lo[(prepared_lo.from_territory_id.isin(uniq_ids)
-                            )|(prepared_lo.to_territory_id.isin(uniq_ids))
-                           ]
-
-            if show_level==2:
-                # взять только колонки _parent и поменять названия
-                df_with_geom = df_with_geom.iloc[:,4:].drop_duplicates()
-                df_with_geom.columns = ['territory_id','oktmo','name','geometry']
-            
-            df_with_geom.loc[:,'geometry'] = gpd.GeoSeries.from_wkt(df_with_geom['geometry'].astype(str))
-            df_with_geom.loc[:,'centroid'] = df_with_geom.geometry.apply(lambda x: x.centroid)
-            
-            # мерджим, чтобы добавить инф-ию по id и geometry
-            #  для узла "откуда"
-            result = result.merge(df_with_geom[['territory_id','geometry','centroid']], 
-                              left_on='from_territory_id', 
-                              right_on='territory_id', how='left'
-                              ).rename(columns={'geometry':'from_geometry',
-                                               'centroid':'from_centroid'}
-                                      ).drop(columns=['territory_id'])
-            #  для узла "куда"
-            result = result.merge(df_with_geom[['territory_id','geometry','centroid']], 
-                              left_on='to_territory_id', 
-                              right_on='territory_id', how='left'
-                                 ).rename(columns={'geometry':'to_geometry',
-                                               'centroid':'to_centroid'}
-                                         ).drop(columns=['territory_id'])
-
-            if (show_level-1 > 1)&(change_lo_level):
-                lo_for_dict = df_with_geom[['territory_id','territory_id_parent',
-                            'geometry_parent']]
-                lo_for_dict.loc[:,'geometry_parent'] = gpd.GeoSeries.from_wkt(
-                    lo_for_dict['geometry_parent'].astype(str))
-                lo_for_dict.loc[:,'centroid'] = lo_for_dict.geometry_parent.apply(lambda x: x.centroid)
-                dict_lo = lo_for_dict.set_index('territory_id').to_dict()
-
-                result = change_children_to_parents(result, dict_lo, uniq_ids)
-                # заменяем наш дф с геометрией детей-родителей;
-                # для нерассматриваемых id заменяем на территорию выше
-                bool_idx = ~df_with_geom.territory_id.isin(uniq_ids)
-                df_with_geom.loc[bool_idx, df_with_geom.columns[:4]
-                                ] = df_with_geom.loc[bool_idx, df_with_geom.columns[4:-1]].values
-                df_with_geom = df_with_geom.drop_duplicates()
+            if n_children!=0:
+                siblings = fin_df[['territory_id','oktmo','name','geometry']].copy()
                 
-            from_to_geom, from_to_lines = mig_dest_multipolygons(result, df_with_geom)
-            from_to_geom = from_to_geom.drop_duplicates()
-            from_to_lines = from_to_lines.drop_duplicates()
-            from_to_lines.loc[:,'to_territory_id'] = from_to_lines['to_territory_id'].astype(int)
-            from_to_lines.loc[:,'from_territory_id'] = from_to_lines['from_territory_id'].astype(int)
-        
+            # если детей не выбирали, т.е одна тер-рия
+            if n_children==0:
+                # собираем территории того же родителя, "братьев/сестер"
+                current_territory.parent.territory_type = current_territory.territory_type-1
+                terr_classes = [current_territory.parent]
+                terr_ids = [current_territory.parent.territory_id]
+                
+                for i in range(1):
+                    for ter_id, ter_class in zip(terr_ids, terr_classes):
+                        get_children(session, ter_id, ter_class)
+                    # новый набор для итерации    
+                    terr_classes = [child for one_class in terr_classes for child in one_class.children]
+                    # новые id тер-рий
+                    terr_ids = [one_class.territory_id for one_class in terr_classes]
+
+                siblings = pd.DataFrame([])
+                siblings['territory_id'] = [cl.territory_id for cl in terr_classes]
+                siblings['oktmo'] = [cl.oktmo for cl in terr_classes]
+                siblings['name'] = [cl.name for cl in terr_classes]
+                siblings['geometry'] = [cl.geometry for cl in terr_classes]
+                
+                show_level = terr_classes[0].territory_type
+            
+            from_to_geom, from_to_lines = mig_dest_prepared(show_level=show_level, 
+                                                            fin_df=fin_df, siblings=siblings, 
+                                                            change_lo_level=change_lo_level)
+            
         fin_df = main_migration(session, fin_df)    
         fin_df = main_factors(session, fin_df)
+        fin_df = gpd.GeoDataFrame(fin_df, geometry='geometry')
         
     if 'oktmo' in fin_df.columns:
         fin_df = fin_df.drop(columns=['oktmo']).fillna(0) 
             
     if with_mig_dest:
-        
-        return [gpd.GeoDataFrame(fin_df), from_to_geom, 
+        return [fin_df, from_to_geom, 
                 gpd.GeoDataFrame(from_to_lines, geometry='line')]
 
     else:
@@ -230,7 +214,6 @@ def main_factors(session, fin_df):
     fin_df = fin_df.merge(sdf, on='oktmo', how='left')
     fin_df = rus_clms_factors(fin_df)
     return fin_df 
-
 
 
 def main_migration(session, fin_df):
@@ -279,6 +262,13 @@ def main_info(session, current_territory, show_level):
         geom_data = gpd.GeoDataFrame.from_features([r_main])[['geometry']]
         current_territory.geometry = geom_data.values[0][0]
         
+        try:
+            current_territory.parent = Territory(r_main['parent']['id'])
+            current_territory.pop_all = r_main['properties']['Численность населения']
+            current_territory.parent.name = r_main['parent']['name']
+        except KeyError:
+            pass
+        
         if show_level == current_territory.territory_type:
             current_territory.df['oktmo'] = current_territory.oktmo
             current_territory.df['geometry'] = geom_data
@@ -286,6 +276,7 @@ def main_info(session, current_territory, show_level):
             
     except:
         raise requests.exceptions.RequestException(f'Problem with {r.url}')
+    
     
 def child_to_class(x, parent_class):
     child = Territory(x['territory_id'])
@@ -326,6 +317,7 @@ def get_children(session, parent_id, parent_class):
     except:
         raise requests.exceptions.RequestException(f'Problem with {r_u.url}')     
 
+
 def child_to_class_onetry(x, parent_class):
     child = Territory(x['territory_id'])
     child.name = x['name']
@@ -354,6 +346,7 @@ def get_children_one_try(session, parent_class):
             fin.apply(child_to_class_onetry, parent_class=parent_class, axis=1)
     except:
         raise requests.exceptions.RequestException(f'Problem with {r_u.url}')
+        
         
 def detailed_migration(session, current_territory, fin_df):
     
@@ -407,134 +400,6 @@ def detailed_factors(session, current_territory, fin_df):
 
 
 # _________ Направления миграции _________
-'''
-def mig_destinations(fin_df):
-    fin_df = fin_df.copy()
-    # широта и долгота центральной точки
-    fin_df['centroid'] = fin_df.geometry.apply(lambda x: x.centroid)
-    fin_df[['latitude_dd','longitude_dd']] = fin_df.apply(lambda x: (x['centroid'].x, x['centroid'].y), 
-                                                          axis=1, result_type='expand')
-    
-    ddf = pd.read_csv(file_path+'in_out_migration_diff_types.csv', index_col=0)[
-        ['vozr','migr','municipality','oktmo','year','in_value','out_value']]
-    ddf['oktmo'] = ddf['oktmo'].astype(str)
-    oktmos = fin_df['oktmo'].values
-    
-    # отбираем по ОКТМО нужные районы
-    needed_part = ddf[(ddf.oktmo.isin(oktmos))&
-                      (ddf.vozr=='Всего')&
-                      (ddf.migr.isin(['Миграция, всего', 'Внутрирегиональная']))]
-    # добавляем territory_id и используем только его как id. 
-    needed_part = needed_part.merge(fin_df[['territory_id','oktmo']], 
-                      how='right', on='oktmo')
-    area_part = needed_part.sort_values(by=['year','migr','territory_id']
-                                       ).drop_duplicates(['year','migr',
-                                                          'territory_id'])
-    # собираем значения
-    arr = area_part.groupby(['territory_id','year','migr']
-                           ).sum()[['in_value','out_value']].reset_index()
-    
-    # отдельно для внутрирег. и для общей миграции
-    q_region = arr[arr.migr=='Внутрирегиональная'].drop(columns=['migr'])
-    q_region = q_region.rename(columns={'in_value':'Int_in',
-                                        'out_value':'Int_out'})
-    q_all = arr[arr.migr=='Миграция, всего'].drop(columns=['migr'])
-    # объединяем
-    q_fin = q_region.merge(q_all)
-    
-    q_fin['Ext_in'] = q_fin["in_value"]-q_fin["Int_in"]
-    q_fin['Ext_out'] = q_fin["out_value"]-q_fin["Int_out"]
-    q_fin.drop(columns=['in_value','out_value'])
-
-    q_fin = q_fin[['territory_id','year','Int_in','Int_out','Ext_in','Ext_out']
-                   ].merge(fin_df[['territory_id','name','latitude_dd','longitude_dd']], 
-                           how='right', on='territory_id')
-    return fin_df, q_fin
-
-
-# функция от А.Н.
-
-def mig_destinations_df(fin_df, md_year=2022, uniq_ids=[],
-                        show_level=3, change_lo_level=False):
-    fin_df_with_centre, q_fin = mig_destinations(fin_df[['geometry',
-                                                         'territory_id',
-                                                         'name','oktmo']])
-    
-    # данные по заданному году; нормируем
-    yeartab = q_fin[q_fin.year==md_year].copy()
-    yeartab['nInt_in'] = yeartab['Int_in']/yeartab['Int_in'].sum()
-    yeartab['nInt_out'] = yeartab['Int_out']/yeartab['Int_out'].sum()
-    yeartab['saldo'] = yeartab['Int_in']-yeartab['Int_out']+yeartab['Ext_in']-yeartab['Ext_out']
-    
-    # строим граф
-    G = nx.DiGraph()
-    G.add_nodes_from(zip(yeartab.territory_id.unique(),
-                          yeartab[['saldo','name', 'latitude_dd', 'longitude_dd']
-                                 ].to_dict(orient= 'records'))
-                    )
-    w = lambda u, v: round((yeartab.loc[yeartab.territory_id==u, 'Int_out'
-                                       ].values * yeartab.loc[yeartab.territory_id==v, 
-                                                              'nInt_in'].values)[0], 
-                           0)
-    edg = np.array([(int(u), int(v), w(u,v)) for u, v in permutations(yeartab.territory_id, 2
-                                                                     ) if w(u,v)>0])
-    G.add_weighted_edges_from(edg)
-    # для баланса добавляем внешний узел
-    outer_node_id = 0
-    G.add_node(outer_node_id, name='External', saldo = -yeartab.saldo.sum(), 
-                                latitude_dd = yeartab.latitude_dd.min()-.5, 
-                                longitude_dd = yeartab.longitude_dd.mean()) 
-    edg = np.array([(outer_node_id, int(v), yeartab.loc[yeartab.territory_id==v, 'Ext_in'].values[0]
-                    ) for v in yeartab.territory_id ])
-    G.add_weighted_edges_from(edg)
-    edg = np.array([(int(u), outer_node_id, yeartab.loc[yeartab.territory_id==u, 'Ext_out'].values[0]
-                    ) for u in yeartab.territory_id ])
-    G.add_weighted_edges_from(edg)
-    # все в датафрейм
-    ndf = nx.to_pandas_edgelist(G).rename(columns={'source':'from_territory_id',
-                                                   'target':'to_territory_id',
-                                                   'weight':'n_people'})
-    
-    # мерджим, чтобы добавить инф-ию по id и geometry
-    #  для узла "откуда"
-    result = ndf.merge(fin_df_with_centre[['territory_id','geometry','centroid']], 
-                      left_on='from_territory_id', 
-                      right_on='territory_id', how='left'
-                      ).rename(columns={'geometry':'from_geometry',
-                                       'centroid':'from_centroid'}
-                              ).drop(columns=['territory_id'])
-    #  для узла "куда"
-    result = result.merge(fin_df_with_centre[['territory_id','geometry','centroid']], 
-                      left_on='to_territory_id', 
-                      right_on='territory_id', how='left'
-                         ).rename(columns={'geometry':'to_geometry',
-                                       'centroid':'to_centroid'}
-                                 ).drop(columns=['territory_id'])
-    # убираем линии миграции у вспомогательных районов
-    result = result[(result.from_territory_id.isin(uniq_ids)
-                    )|(result.to_territory_id.isin(uniq_ids))
-                   ]
-    
-    if (show_level-1 > 1)&(change_lo_level):
-        #lo2 = info_for_graph(1, show_level-1, md_year)
-        lo2 = gpd.read_file(file_path+f'info_for_graph_1_{show_level-1}.geojson').iloc[:,1:]
-        
-        lo_for_dict = fin_df[~fin_df.parent_id.isna()][['territory_id','parent_id'
-                         ]].merge(lo2[['territory_id','geometry']],
-                                  left_on='parent_id', right_on='territory_id',
-                                  how='left'
-                                 ).drop(columns=['territory_id_y']
-                                       ).set_index('territory_id_x')
-        
-        lo_for_dict['centroid'] = lo_for_dict.geometry.apply(lambda x: x.centroid)
-        dict_lo = lo_for_dict.to_dict()
-        
-        result = change_children_to_parents(result, dict_lo, uniq_ids)
-        
-        
-    from_to_geom, from_to_lines = mig_dest_multipolygons(result, fin_df_with_centre)
-    return from_to_geom, from_to_lines
-'''
 
 def change_children_to_parents(result, dict_lo, uniq_ids):
     dict_lo_geom = dict_lo['geometry_parent']
@@ -606,6 +471,103 @@ def mig_dest_multipolygons(result, fin_df_with_centre):
     
     return [from_to_geom, from_to_lines]
 
+
+def mig_dest_prepared(show_level, fin_df, siblings, 
+                      change_lo_level=False, md_year=2022):
+    df_with_geom = pd.read_csv(file_path+'lo_3_parents.csv', 
+                               index_col=0)
+    if show_level > 2:
+        result = pd.read_csv(file_path+f'graph_LO_{show_level}level_{md_year}.csv',
+                             index_col=0)
+    else:
+        pre_result = pd.read_csv(file_path+'for_graph_LO_2level.csv',
+                                 index_col=0)
+        result = graph_lo_2level(pre_result, md_year)
+        
+    # линии только из заданных территорий
+    uniq_ids = fin_df.territory_id.unique()
+    result = result[(result.from_territory_id.isin([*uniq_ids])
+                    )|(result.to_territory_id.isin([*uniq_ids]))
+                   ]
+    
+    if show_level==2:
+        # взять только колонки _parent и поменять названия
+        df_with_geom = df_with_geom.iloc[:,4:].drop_duplicates()
+        df_with_geom.columns = ['territory_id','oktmo','name','geometry']
+
+    df_with_geom.loc[:,'geometry'] = gpd.GeoSeries.from_wkt(df_with_geom['geometry'].astype(str))
+    df_with_geom.loc[:,'centroid'] = df_with_geom.geometry.apply(lambda x: x.centroid)
+
+    # мерджим, чтобы добавить инф-ию по id и geometry
+    #  для узла "откуда"
+    result = result.merge(df_with_geom[['territory_id','geometry','centroid']], 
+                      left_on='from_territory_id', 
+                      right_on='territory_id', how='left'
+                      ).rename(columns={'geometry':'from_geometry',
+                                       'centroid':'from_centroid'}
+                              ).drop(columns=['territory_id'])
+    #  для узла "куда"
+    result = result.merge(df_with_geom[['territory_id','geometry','centroid']], 
+                      left_on='to_territory_id', 
+                      right_on='territory_id', how='left'
+                         ).rename(columns={'geometry':'to_geometry',
+                                       'centroid':'to_centroid'}
+                                 ).drop(columns=['territory_id'])
+    
+    # сгруппировать побочные территории, чтобы не нагружать рисунок
+    # если при подъеме будет не ЛО, если задали подъем, если это не detailed=True 
+    if (show_level-1 > 1)&(change_lo_level):
+        lo_for_dict = df_with_geom[['territory_id','territory_id_parent',
+                    'geometry_parent']].copy()
+        lo_for_dict.loc[:,'geometry_parent'] = gpd.GeoSeries.from_wkt(
+            lo_for_dict['geometry_parent'].astype(str))
+        lo_for_dict.loc[:,'centroid'] = lo_for_dict.geometry_parent.apply(lambda x: x.centroid)
+        dict_lo = lo_for_dict.set_index('territory_id').to_dict()
+        
+        # все территории, не относящиеся к братьям/сестрам, группируем на уровень выше
+        uniq_ids = siblings.territory_id.unique()
+        result = change_children_to_parents(result, dict_lo, uniq_ids)
+        
+        # заменяем наш дф с геометрией детей-родителей;
+        # для нерассматриваемых id заменяем на территорию выше
+        bool_idx = ~df_with_geom.territory_id.isin(uniq_ids)
+        df_with_geom.loc[bool_idx, df_with_geom.columns[:4]
+                        ] = df_with_geom.loc[bool_idx, df_with_geom.columns[4:-1]].values
+        df_with_geom = df_with_geom.drop_duplicates()
+                
+    from_to_geom, from_to_lines = mig_dest_multipolygons(result, df_with_geom)
+    from_to_geom = from_to_geom.drop_duplicates()
+    from_to_lines = from_to_lines.drop_duplicates()
+    from_to_lines.loc[:,'to_territory_id'] = from_to_lines['to_territory_id'].astype(int)
+    from_to_lines.loc[:,'from_territory_id'] = from_to_lines['from_territory_id'].astype(int)
+    
+    return from_to_geom, from_to_lines
+
+
+def graph_lo_2level(pre_result, md_year):
+    yeartab = pre_result[pre_result.year==md_year].copy()
+
+    yeartab['nInt_in'] = yeartab['Int_in']/yeartab['Int_in'].sum()
+    yeartab['nInt_out'] = yeartab['Int_out']/yeartab['Int_out'].sum()
+    yeartab['saldo'] = yeartab['Int_in']-yeartab['Int_out']+yeartab['Ext_in']-yeartab['Ext_out']
+
+    w=lambda u, v: round((yeartab.loc[yeartab.territory_id==u, 
+                                      'Int_out'].values*yeartab.loc[yeartab.territory_id==v, 
+                                                                    'nInt_in'].values)[0] , 0)
+
+    edg0 = np.array([(int(u), int(v), w(u,v)) for u, v in permutations(yeartab.territory_id, 
+                                                                       2) if w(u,v)>0])
+    edg1 = np.array([(0, int(v), yeartab.loc[yeartab.territory_id==v, 
+                                             'Ext_in'].values[0]) for v in yeartab.territory_id ])
+    edg2 = np.array([(int(u), 0, yeartab.loc[yeartab.territory_id==u, 
+                                             'Ext_out'].values[0]) for u in yeartab.territory_id ])
+
+    dd = pd.concat([pd.DataFrame(edg0),
+                    pd.DataFrame(edg1),
+                    pd.DataFrame(edg2)]).astype(int)
+    dd.columns=['from_territory_id','to_territory_id','n_people']
+    
+    return dd
 
 
 # _________ Для русских колонок _________

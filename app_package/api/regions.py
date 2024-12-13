@@ -336,7 +336,7 @@ def main_migr():
     territory_id = request.args.get('territory_id', type = int, default=34)
     show_level = request.args.get('show_level', type = int, default=2)
     with_mig_dest = request.args.get('mig_destinations', type = is_it_true, default=False)
-    change_lo_level = request.args.get('change_lo_level', type = is_it_true, default=False)
+    change_lo_level = request.args.get('change_lo_level', type = is_it_true, default=True)
     result = MigInfoForAPI.info(territory_id=territory_id, 
                                 show_level=show_level, 
                                 with_mig_dest=with_mig_dest,
@@ -344,8 +344,7 @@ def main_migr():
     
     if with_mig_dest:
         fin_df, from_to_geom, from_to_lines = result
-        #return [result[0].to_json(), result[1].to_json(), result[2].to_json()]
-        fin_df = fin_df.set_geometry('geometry')
+        fin_df = gpd.GeoDataFrame(fin_df).set_geometry('geometry')
         from_to_geom = from_to_geom.set_geometry('geometry')
         from_to_lines = from_to_lines.set_geometry('line')
         return [fin_df.to_json(), from_to_lines.to_json(), from_to_lines.to_json()]
@@ -358,11 +357,21 @@ def main_migr():
 @cross_origin()
 def detailed_migr():
     territory_id = request.args.get('territory_id', type = int, default=34)
-    
+    with_mig_dest = request.args.get('mig_destinations', type = is_it_true, default=False)
+    md_year = request.args.get('year', type = int, default=2022)
     result = MigInfoForAPI.info(territory_id=territory_id, 
-                                detailed=True)
-    return Response(result.to_json(orient="records"), 
-                    mimetype='application/json')
+                                detailed=True, 
+                                with_mig_dest=with_mig_dest,
+                                md_year=md_year)
+                            
+    if with_mig_dest:
+        fin_df, from_to_geom, from_to_lines = result
+        from_to_geom = from_to_geom.set_geometry('geometry')
+        from_to_lines = from_to_lines.set_geometry('line')
+        return [fin_df.to_json(orient="records"), from_to_lines.to_json(), from_to_lines.to_json()]
+    else:
+        return Response(result.to_json(orient="records"), 
+                        mimetype='application/json')
 
 
 @bp_api.route('/regions/values_identities', methods=['GET'])
