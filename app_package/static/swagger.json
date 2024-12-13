@@ -139,11 +139,20 @@
           "Module 21"
         ],
         "summary": "Migration detailed information (all years): num in/out, types, factors",
-        "description": "Inflow of <across russia / outside region / inside region /  international / interregional / all / other countries / CIS counries> migrants; <br>  Outflow of the same migrants; <br> Migration factors: avgemployers, avgsalary, ... <br><br> // В пределах России, Внешняя (для региона) миграция, Внутрирегиональная,  Международная, Межрегиональная, Миграция всего,  С другими зарубежными странами, Со странами СНГ",
+        "description": "Inflow of <across russia / outside region / inside region /  international / interregional / all / other countries / CIS counries> migrants; <br>  Outflow of the same migrants; <br> Migration factors: avgemployers, avgsalary, ... <br><br> // В пределах России, Внешняя (для региона) миграция, Внутрирегиональная,  Международная, Межрегиональная, Миграция всего,  С другими зарубежными странами, Со странами СНГ<br>if mig_destinations=True => + geojson with polygons, geojson with lines",
         "parameters": [
           {
             "$ref": "#/components/parameters/territory_id"
-          }
+          },
+          {
+            "$ref": "#/components/parameters/mig_destinations"
+          },
+          {
+            "$ref": "#/components/parameters/change_lo_level"
+          },
+          {
+            "$ref": "#/components/parameters/given_year"
+          },
         ],
         "responses": {
           "200": {
@@ -152,7 +161,7 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/mig_detailed_info_200"
-                }
+                },
               }
             }
           }
@@ -410,14 +419,14 @@
       },
       "change_lo_level": {
         "name": "change_lo_level",
-        "default": false,
+        "default": true,
         "in": "query",
-        "description": "Make LO show level higher for mig destinations.",
+        "description": "Group auxiliary areas one level higher.",
         "required": false,
         "schema": {
           "type": "bool"
         }
-      }
+      },
     },
     "schemas": {
       "404": {

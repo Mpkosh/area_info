@@ -358,7 +358,7 @@ def main_migr():
 def detailed_migr():
     territory_id = request.args.get('territory_id', type = int, default=34)
     with_mig_dest = request.args.get('mig_destinations', type = is_it_true, default=False)
-    md_year = request.args.get('year', type = int, default=2022)
+    md_year = request.args.get('given_year', type = int, default=2022)
     result = MigInfoForAPI.info(territory_id=territory_id, 
                                 detailed=True, 
                                 with_mig_dest=with_mig_dest,
