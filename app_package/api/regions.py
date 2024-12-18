@@ -347,7 +347,7 @@ def main_migr():
         fin_df = gpd.GeoDataFrame(fin_df).set_geometry('geometry')
         from_to_geom = from_to_geom.set_geometry('geometry')
         from_to_lines = from_to_lines.set_geometry('line')
-        return [fin_df.to_json(), from_to_lines.to_json(), from_to_lines.to_json()]
+        return [fin_df.to_json(), from_to_geom.to_json(), from_to_lines.to_json()]
     else:
         return Response(result.set_geometry('geometry').to_json(), 
                         mimetype='application/json')
@@ -368,7 +368,7 @@ def detailed_migr():
         fin_df, from_to_geom, from_to_lines = result
         from_to_geom = from_to_geom.set_geometry('geometry')
         from_to_lines = from_to_lines.set_geometry('line')
-        return [fin_df.to_json(orient="records"), from_to_lines.to_json(), from_to_lines.to_json()]
+        return [fin_df.to_json(orient="records"), from_to_geom.to_json(), from_to_lines.to_json()]
     else:
         return Response(result.to_json(orient="records"), 
                         mimetype='application/json')
