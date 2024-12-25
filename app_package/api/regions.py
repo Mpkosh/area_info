@@ -11,7 +11,7 @@ from app_package.api import bp as bp_api
 from app_package.src import PreproDF, PopulationInfo, \
                             AreaOnMapFile, DensityInfo, \
                             PopInfoForAPI, MigInfoForAPI, \
-                            ValIdentityMatrix
+                            ValIdentityMatrix, MigForecast
 
 import pandas as pd
 import geopandas as gpd
@@ -19,7 +19,6 @@ import numpy as np
 import requests
 from shapely.geometry import Polygon
 import os
-
 
 
 file_dir = 'app_package/src/population_data/'
@@ -303,6 +302,7 @@ def pop_needs():
     return Response(df.to_json(orient="split"), 
                     mimetype='application/json')
 
+
 #____________ OFFICIAL F11
 
 @bp_api.route('/regions/main_info', methods=['GET'])
@@ -327,8 +327,18 @@ def detailed_info():
     return [pop_df.to_json(), groups_df.to_json(), dynamic_pop_df.to_json(),
             soc_pyramid_df.to_json(), values_df.to_json()]
 
-#____________ OFFICIAL F21
 
+@bp_api.route('/regions/values_identities', methods=['GET'])
+@cross_origin()
+def values_identities():
+    territory_id = request.args.get('territory_id', type = int, default = 34)
+    feature_changed = request.args.get('feature_changed', type = is_it_true, default = False)
+    changes_dict = request.args.get('changes_dict', type = str, default = "")
+    result = ValIdentityMatrix.muni_tab(territory_id, feature_changed, changes_dict)
+    return Response(result, mimetype='application/json')
+
+
+#____________ OFFICIAL F21
 
 @bp_api.route('/migrations/main_info', methods=['GET'])
 @cross_origin()
@@ -347,7 +357,7 @@ def main_migr():
         fin_df = gpd.GeoDataFrame(fin_df).set_geometry('geometry')
         from_to_geom = from_to_geom.set_geometry('geometry')
         from_to_lines = from_to_lines.set_geometry('line')
-        return [fin_df.to_json(), from_to_lines.to_json(), from_to_lines.to_json()]
+        return [fin_df.to_json(), from_to_geom.to_json(), from_to_lines.to_json()]
     else:
         return Response(result.set_geometry('geometry').to_json(), 
                         mimetype='application/json')
@@ -368,17 +378,31 @@ def detailed_migr():
         fin_df, from_to_geom, from_to_lines = result
         from_to_geom = from_to_geom.set_geometry('geometry')
         from_to_lines = from_to_lines.set_geometry('line')
-        return [fin_df.to_json(orient="records"), from_to_lines.to_json(), from_to_lines.to_json()]
+        return [fin_df.to_json(orient="records"), from_to_geom.to_json(), from_to_lines.to_json()]
     else:
         return Response(result.to_json(orient="records"), 
                         mimetype='application/json')
 
 
-@bp_api.route('/regions/values_identities', methods=['GET'])
+## код Альберта; прогноз миграции
+@bp_api.route('/migrations/forecast', methods=['GET'])
 @cross_origin()
-def values_identities():
-    territory_id = request.args.get('territory_id', type = int, default = 34)
-    feature_changed = request.args.get('feature_changed', type = is_it_true, default = False)
-    changes_dict = request.args.get('changes_dict', type = str, default = "")
-    result = ValIdentityMatrix.muni_tab(territory_id, feature_changed, changes_dict)
-    return Response(result, mimetype='application/json')
+def mig_forecast():
+    features = ['year', 'popsize', 'avgemployers', 'avgsalary', 'shoparea', 
+                'foodseats', 'retailturnover', 'livarea', 'sportsvenue', 
+                'servicesnum', 'roadslen', 'livestock', 'harvest', 'agrprod', 
+                'hospitals', 'beforeschool']
+    
+    input_values = []
+    for param in features:
+        param_value = request.args.get(param, type = float)
+        input_values.append(param_value)
+    
+    # обработка входных параметров
+    inputdata = pd.DataFrame.from_records([input_values], 
+                                          columns=features)
+    inputdata = inputdata.astype(float)
+    
+    res = MigForecast.model_outcome(inputdata)
+    return Response(res.to_json(orient="records"), 
+                    mimetype='application/json')

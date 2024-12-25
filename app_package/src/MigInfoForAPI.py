@@ -20,7 +20,7 @@ from itertools import permutations
 
 social_api = os.environ.get('SOCIAL_API')
 terr_api = os.environ.get('TERRITORY_API') 
-file_path = 'app_package/src/'
+file_path = 'app_package/src/for_mig_dest/'
 
        
 class Territory():
