@@ -14,6 +14,8 @@ import requests
 import json
 
 terr_api = os.environ.get('TERRITORY_API')
+#признаки, которые не делятся на население
+non_pop_features = ['livarea', 'consnewapt', 'avgsalary', 'avgemployers', 'pollutcapturedperc', 'harvest', 'litstreetperc']
 
 def get_oktmo(territory_id: int) -> int:
 	"""
@@ -46,7 +48,7 @@ def loc_counts(loc_data: pd.Series, grid_coeffs: pd.DataFrame) -> pd.DataFrame:
 			if type(grid_coeffs[col][row]) == dict:
 				for indicator in grid_coeffs[col][row].keys():
 					cell_sum += loc_data[indicator] * grid_coeffs[col][row][indicator]
-				n_coeffs[col][row] = cell_sum
+				n_coeffs.loc[row, col] = cell_sum
 	return pd.DataFrame(n_coeffs).reindex(['dev', 'soc', 'bas'])
 
 def tab_to_ser(df: pd.DataFrame, loc = None) -> pd.Series:
@@ -79,6 +81,7 @@ def reg_df_to_tab(reg_df: pd.DataFrame, grid_coeffs: pd.DataFrame) -> pd.DataFra
 	клеток таблицы "ценностей/идентичностей"
 
 	:param pd.DataFrame reg_df: датафрейм со значениями соцэконом индикаторов для каждого района региона
+	:param pd.DataFrame grid_coeffs: Таблица с коэффициентами для различных индикаторов каждой клетки
 	"""
 
 	muni1 = reg_df.index.min()
@@ -98,7 +101,7 @@ def ser_to_tab(sr: pd.Series, grid_coeffs: pd.DataFrame) -> pd.DataFrame:
 
 	:param pd.Series sr: pd.Series показателей данной локации
 	:param pd.DataFrame grid_coeffs: Таблица с коэффициентами для различных индикаторов каждой клетки, нужен для удобства формирования
-	таблицы по данному региону из списка его показателей
+	таблицы по данной территории из списка её показателей
 	"""
 
 	n_coeffs = copy.deepcopy(grid_coeffs)
@@ -147,8 +150,32 @@ def get_csv_features_from_db(feature_type, feature_id):
 def refresh_coeff_table():
 	pass
 
+"""
+Пересчёт данных для подсчёта оценки в случае пользовательских изменений значений соцэкономиндикаторов
+"""
+
+def change_features(oktmo: int, changes_dict: dict, reg_df: pd.DataFrame) -> pd.DataFrame:
+	"""
+	changes_dict ожидается в следующем формате:
+	{"<Название 1ого изменённого индикатора>": <новое значение>,
+	 "<Название 2ого изменённого индикатора>": <новое значение>,
+	 ...
+	 "<Название последнего изменённого индикатора>": <новое значение>}
+	"""
+	with open('app_package/src/norm_dict.json') as json_file:
+		norm_dict = json.load(json_file)
+	population = pd.read_csv('app_package/src/population_light.csv', sep = ';')
+	population = population[population.oktmo == oktmo].popsize.iloc[0]
+	for indicator, value in changes_dict.items():
+		if indicator in non_pop_features:
+			norm_new_val = value / norm_dict[indicator]
+		else:
+			norm_new_val = (value * 1000) / (population * norm_dict[indicator])
+		reg_df.loc[oktmo, indicator] = norm_new_val
+	return reg_df
+
 #Final function
-def muni_tab(territory_id = 34) -> json:
+def muni_tab(territory_id: int, feature_changed = False, changes_dict = "") -> json:
 	"""
 	Составляет таблицу показателей удовлетворённости жителей определённой локации по различным уровням ценностей, связанных с различными идентичностями
 	для заданного района
@@ -156,24 +183,35 @@ def muni_tab(territory_id = 34) -> json:
 	Возвращает json с таблицей
 
 	:param int territory_id: id территории (района), по которому будет строиться таблица
+	:param bool feature_changed: флажок, указывающий на то, изменил ли пользователь значения каких-то факторов
+	:param dict changes_dict: словарь изменений в показатели, внесённых пользователем. На данный момент ожидается следующий формат:
+	{"<Название 1ого изменённого индикатора>": <новое значение>,
+	 "<Название 2ого изменённого индикатора>": <новое значение>,
+	 ...
+	 "<Название последнего изменённого индикатора>": <новое значение>}
 	"""
 
 	#34 - это Всеволожский район
 
 	#получаем oktmo данного муниципального образования
 	oktmo = get_oktmo(territory_id)
-	print(oktmo)
 	#получаем oktmo региона, в котором данное мун. образование находится
 	reg_oktmo = oktmo - (oktmo % 1000000)
 
 	#загружаем общую таблицу
-	full_df = pd.read_csv('app_package/src/full_df3.csv', sep = ';', index_col = 0)
+	full_df = pd.read_csv('app_package/src/full_df4.csv', sep = ';', index_col = 0)
 
 	#получаем таблицу региона
 	reg_df = full_df[(full_df.index >= reg_oktmo) & (full_df.index < reg_oktmo + 1000000)]
 
+	#проверка флажка об изменениях от пользователя и пересчёт таблицы (при необходимости)
+	if feature_changed:
+		changes_dict = json.loads(changes_dict)
+		print(changes_dict)
+		reg_df = change_features(oktmo, changes_dict, reg_df)
+
 	#здесь надо сформировать таблицу с данными по доп модификаторам для районов данного региона
-	reg_df2 = get_features_from_db(territory_id)
+	#reg_df2 = get_features_from_db(territory_id)
 
 	##переводим таблицу индикаторов региона в таблицу значений "клеточек" для региона
 	#для этого загрузим таблицу коэффициентов

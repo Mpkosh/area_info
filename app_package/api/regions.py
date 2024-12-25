@@ -378,5 +378,7 @@ def detailed_migr():
 @cross_origin()
 def values_identities():
     territory_id = request.args.get('territory_id', type = int, default = 34)
-    result = ValIdentityMatrix.muni_tab(territory_id)
+    feature_changed = request.args.get('feature_changed', type = is_it_true, default = False)
+    changes_dict = request.args.get('changes_dict', type = str, default = "")
+    result = ValIdentityMatrix.muni_tab(territory_id, feature_changed, changes_dict)
     return Response(result, mimetype='application/json')
