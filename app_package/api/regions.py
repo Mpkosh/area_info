@@ -11,7 +11,7 @@ from app_package.api import bp as bp_api
 from app_package.src import PreproDF, PopulationInfo, \
                             AreaOnMapFile, DensityInfo, \
                             PopInfoForAPI, MigInfoForAPI, \
-                            ValIdentityMatrix, MigForecast
+                            ValIdentityMatrix
 
 import pandas as pd
 import geopandas as gpd
@@ -19,6 +19,7 @@ import numpy as np
 import requests
 from shapely.geometry import Polygon
 import os
+
 
 
 file_dir = 'app_package/src/population_data/'
@@ -302,7 +303,6 @@ def pop_needs():
     return Response(df.to_json(orient="split"), 
                     mimetype='application/json')
 
-
 #____________ OFFICIAL F11
 
 @bp_api.route('/regions/main_info', methods=['GET'])
@@ -338,6 +338,7 @@ def values_identities():
 
 #____________ OFFICIAL F21
 
+
 @bp_api.route('/migrations/main_info', methods=['GET'])
 @cross_origin()
 def main_migr():
@@ -355,7 +356,7 @@ def main_migr():
         fin_df = gpd.GeoDataFrame(fin_df).set_geometry('geometry')
         from_to_geom = from_to_geom.set_geometry('geometry')
         from_to_lines = from_to_lines.set_geometry('line')
-        return [fin_df.to_json(), from_to_geom.to_json(), from_to_lines.to_json()]
+        return [fin_df.to_json(), from_to_lines.to_json(), from_to_lines.to_json()]
     else:
         return Response(result.set_geometry('geometry').to_json(), 
                         mimetype='application/json')
@@ -376,14 +377,13 @@ def detailed_migr():
         fin_df, from_to_geom, from_to_lines = result
         from_to_geom = from_to_geom.set_geometry('geometry')
         from_to_lines = from_to_lines.set_geometry('line')
-        return [fin_df.to_json(orient="records"), from_to_geom.to_json(), from_to_lines.to_json()]
+        return [fin_df.to_json(orient="records"), from_to_lines.to_json(), from_to_lines.to_json()]
     else:
         return Response(result.to_json(orient="records"), 
                         mimetype='application/json')
 
 
-## код Альберта; прогноз миграции
-@bp_api.route('/migrations/forecast', methods=['GET'])
+@bp_api.route('/regions/values_identities', methods=['GET'])
 @cross_origin()
 def mig_forecast():
     features = ['year', 'popsize', 'avgemployers', 'avgsalary', 'shoparea', 
