@@ -11,7 +11,7 @@ from app_package.api import bp as bp_api
 from app_package.src import PreproDF, PopulationInfo, \
                             AreaOnMapFile, DensityInfo, \
                             PopInfoForAPI, MigInfoForAPI, \
-                            ValIdentityMatrix
+                            ValIdentityMatrix, MigForecast
 
 import pandas as pd
 import geopandas as gpd
@@ -332,7 +332,9 @@ def detailed_info():
 @cross_origin()
 def values_identities():
     territory_id = request.args.get('territory_id', type = int, default = 34)
-    result = ValIdentityMatrix.muni_tab(territory_id)
+    feature_changed = request.args.get('feature_changed', type = is_it_true, default = False)
+    changes_dict = request.args.get('changes_dict', type = str, default = "")
+    result = ValIdentityMatrix.muni_tab(territory_id, feature_changed, changes_dict)
     return Response(result, mimetype='application/json')
 
 
@@ -377,7 +379,7 @@ def detailed_migr():
         fin_df, from_to_geom, from_to_lines = result
         from_to_geom = from_to_geom.set_geometry('geometry')
         from_to_lines = from_to_lines.set_geometry('line')
-        return [fin_df.to_json(orient="records"), from_to_lines.to_json(), from_to_lines.to_json()]
+        return [fin_df.to_json(orient="records"), from_to_geom.to_json(), from_to_lines.to_json()]
     else:
         return Response(result.to_json(orient="records"), 
                         mimetype='application/json')
