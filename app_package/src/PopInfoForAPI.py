@@ -152,11 +152,11 @@ def info(territory_id=34, show_level=3):
     
     # ____ Если данных колонок нет, то добавляем и ставим нули
     cols = ['density','pop_all','pop_younger','pop_can_work','pop_older',
-            'koeff_death','koeff_birth','koeff_migration']
+            'coeff_death','coeff_birth','coeff_migration']
     fin_df = fin_df.reindex(fin_df.columns.union(cols, sort=False), axis=1, fill_value=0)
     fin_df[['pop_all','pop_younger','pop_can_work','pop_older']] = \
         fin_df[['pop_all','pop_younger','pop_can_work','pop_older']].astype(int)
-    fin_df[['koeff_death','koeff_birth','koeff_migration']] = [0.01, 0.871, 0.2]
+    fin_df[['coeff_death','coeff_birth','coeff_migration']] = [0.01, 0.871, 0.2]
     cols_order = ['territory_id','name','geometry']+cols
     return fin_df[cols_order].sort_values('territory_id')
     
