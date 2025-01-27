@@ -4,8 +4,7 @@ import geopandas as gpd
 import numpy as np
 from shapely.geometry import Point
 import os
-from app_package.src import DemForecast
-from app_package.src.PreproDF import add_ages_70_to_100
+from app_package.src import PreproDF, DemForecast
 
 
 social_api = os.environ.get('SOCIAL_API')
@@ -49,7 +48,7 @@ def prepro_from_api(df_from_json, given_years=[2019,2020], unpack_after_70=False
     df = pd.concat(df_list, axis='columns')
     
     if unpack_after_70:
-        df = add_ages_70_to_100(df)
+        df = PreproDF.add_ages_70_to_100(df)
         df.index = df.index.astype(str)
         # уберем возрастные интервалы
         df = df[df.index.isin([str(i) for i in range(0,101)])]
@@ -100,8 +99,7 @@ def info(territory_id=34, show_level=3):
     main_info(session, current_territory, show_level)
     
     if show_level < current_territory.territory_type:
-        raise ValueError(f'Show level (given: {show_level}) must be '+
-                         f'>= territory type (given: {current_territory.territory_type})')
+        raise ValueError(f'Show level (given: {show_level}) must be >= territory type (given: {current_territory.territory_type})')
         
     n_children = show_level - current_territory.territory_type
     terr_classes = [current_territory]
@@ -111,8 +109,7 @@ def info(territory_id=34, show_level=3):
         for ter_id, ter_class in zip(terr_ids, terr_classes):
             get_children(session, ter_id, ter_class)
         # новый набор для итерации    
-        terr_classes = [child for one_class in terr_classes 
-                        for child in one_class.children]
+        terr_classes = [child for one_class in terr_classes for child in one_class.children]
         # новые id тер-рий
         terr_ids = [one_class.territory_id for one_class in terr_classes]    
     
