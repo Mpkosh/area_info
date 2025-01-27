@@ -21,6 +21,7 @@ from shapely.geometry import Polygon
 import os
 
 
+
 file_dir = 'app_package/src/population_data/'
 social_api = os.environ.get('SOCIAL_API')
 territories_api = os.environ.get('TERRITORY_API') 
@@ -302,7 +303,6 @@ def pop_needs():
     return Response(df.to_json(orient="split"), 
                     mimetype='application/json')
 
-
 #____________ OFFICIAL F11
 
 @bp_api.route('/regions/main_info', methods=['GET'])
@@ -339,6 +339,7 @@ def values_identities():
 
 
 #____________ OFFICIAL F21
+
 
 @bp_api.route('/migrations/main_info', methods=['GET'])
 @cross_origin()
@@ -384,7 +385,6 @@ def detailed_migr():
                         mimetype='application/json')
 
 
-## код Альберта; прогноз миграции
 @bp_api.route('/migrations/forecast', methods=['GET'])
 @cross_origin()
 def mig_forecast():

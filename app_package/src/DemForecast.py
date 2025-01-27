@@ -6,6 +6,8 @@ Created on Fri Mar 29 14:41:59 2024
 """
 import pandas as pd
 import numpy as np
+#import matplotlib.pyplot as plt
+from app_package.src import PreproDF
 from app_package.src.AuxFilePrepro import get_mor_rate
 
 
@@ -67,3 +69,21 @@ def total(df):
     years.sort()
     pop=[tot[i].sum()/1000 for i in years]
     return np.array(years).astype(int), np.array(pop)
+
+
+'''График всего населения
+def plot_total(df, forecast, title=None):
+    oldpop=total(df)
+    newpop=total(forecast)
+    plt.plot(*oldpop, marker='o', label='Реальные данные')
+    plt.plot(*newpop, marker='o', label='Прогноз')
+    plt.xlabel('Год')
+    x=np.arange(oldpop[0].min(), newpop[0].max()+1)
+    plt.xticks(x, x.astype(str))
+    plt.ylabel('Население (тыс. чел.)')
+    plt.title(title +' район')
+    plt.legend(loc='best')
+    plt.grid()
+    plt.show()
+    return None
+'''

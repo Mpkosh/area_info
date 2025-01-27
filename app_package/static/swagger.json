@@ -174,6 +174,80 @@
         }
       }
     },
+    "/migrations/forecast": {
+      "get": {
+        "tags": [
+          "Module 21"
+        ],
+        "summary": "Migration forecast (saldo) based on 16 features",
+        "description": "Output -- saldo <br> Input -- 16 features: year, popsize, avgemployers, avgsalary, shoparea,foodseats, retailturnover, livarea, sportsvenue, servicesnum, roadslen, livestock, harvest, agrprod, hospitals, beforeschool",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/year"
+          },
+          {
+            "$ref": "#/components/parameters/popsize"
+          },
+          {
+            "$ref": "#/components/parameters/avgemployers"
+          },
+          {
+            "$ref": "#/components/parameters/avgsalary"
+          },
+          {
+            "$ref": "#/components/parameters/shoparea"
+          },
+          {
+            "$ref": "#/components/parameters/foodseats"
+          },
+          {
+            "$ref": "#/components/parameters/retailturnover"
+          },
+          {
+            "$ref": "#/components/parameters/livarea"
+          },
+          {
+            "$ref": "#/components/parameters/sportsvenue"
+          },
+          {
+            "$ref": "#/components/parameters/servicesnum"
+          },
+          {
+            "$ref": "#/components/parameters/roadslen"
+          },
+          {
+            "$ref": "#/components/parameters/livestock"
+          },
+          {
+            "$ref": "#/components/parameters/harvest"
+          },
+          {
+            "$ref": "#/components/parameters/agrprod"
+          },
+          {
+            "$ref": "#/components/parameters/hospitals"
+          },
+          {
+            "$ref": "#/components/parameters/avgemployers"
+          },
+          {
+            "$ref": "#/components/parameters/beforeschool"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/mig_forecast_200"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/regions/density_data_full": {
       "get": {
         "tags": [
@@ -437,7 +511,7 @@
         "name": "feature_changed",
         "default": false,
         "in": "query",
-        "description": "Whether a user changed some parameters for launching a scenario",
+        "description": "Whether a user changed some parameters for launching a scenario.",
         "required": false,
         "schema": {
           "type": "boolean"
@@ -447,10 +521,170 @@
         "name": "changes_dict",
         "default": "{}",
         "in": "query",
-        "description": "New values of the parameters changed by a user for a scenario (json)",
+        "description": "New values of the parameters changed by a user for a scenario (json).",
         "required": false,
         "schema": {
           "type": "string"
+        }
+      },
+      "year": {
+        "name": "year",
+        "default": 2023,
+        "in": "query",
+        "description": "Год",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "popsize": {
+        "name": "popsize",
+        "default": 15039,
+        "in": "query",
+        "description": "Население (чел)",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "avgemployers": {
+        "name": "avgemployers",
+        "default": 2043,
+        "in": "query",
+        "description": "Среднее число работников организаций (чел.)",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "avgsalary": {
+        "name": "avgsalary",
+        "default": 17624.2,
+        "in": "query",
+        "description": "Средняя зарплата (руб.)",
+        "required": true,
+        "schema": {
+          "type": "number"
+        }
+      },
+      "shoparea": {
+        "name": "shoparea",
+        "default": 4333,
+        "in": "query",
+        "description": "Площадь торговых залов магазинов (кв. м.)",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "foodseats": {
+        "name": "foodseats",
+        "default": 240,
+        "in": "query",
+        "description": "Количество мест в ресторанах кафе барах (место)",
+        "required": true,
+        "schema": {
+          "type": "number"
+        }
+      },
+      "retailturnover": {
+        "name": "retailturnover",
+        "default": 684065.8,
+        "in": "query",
+        "description": "Оборот розничной торговли без малых предприятий (тыс. руб.)",
+        "required": true,
+        "schema": {
+          "type": "number"
+        }
+      },
+      "livarea": {
+        "name": "livarea",
+        "default": 29.7,
+        "in": "query",
+        "description": "Жилая площадь на одного человека (кв. м.)",
+        "required": true,
+        "schema": {
+          "type": "number"
+        }
+      },
+      "sportsvenue": {
+        "name": "sportsvenue",
+        "default": 46,
+        "in": "query",
+        "description": "Число спортивных сооружений (шт.)",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "servicesnum": {
+        "name": "servicesnum",
+        "default": 50,
+        "in": "query",
+        "description": "Объекты бытового обслуживания (шт.)",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "roadslen": {
+        "name": "roadslen",
+        "default": 115.1,
+        "in": "query",
+        "description": "Длина дорог (км)",
+        "required": true,
+        "schema": {
+          "type": "number"
+        }
+      },
+      "livestock": {
+        "name": "livestock",
+        "default": 33104,
+        "in": "query",
+        "description": "Поголовье скота всех видов (шт.)",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "harvest": {
+        "name": "harvest",
+        "default": 9860,
+        "in": "query",
+        "description": "Урожайность овощей (цент.)",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "agrprod": {
+        "name": "agrprod",
+        "default": 1012325.2,
+        "in": "query",
+        "description": "Продукция сельского хозяйства (тыс. руб.)",
+        "required": true,
+        "schema": {
+          "type": "number"
+        }
+      },
+      "hospitals": {
+        "name": "hospitals",
+        "default": 19,
+        "in": "query",
+        "description": "Лечебно-профилактические организации (шт.)",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "beforeschool": {
+        "name": "beforeschool",
+        "default": 788.2,
+        "in": "query",
+        "description": "Число мест в дошкольных обр. учреждениях (шт.)",
+        "required": true,
+        "schema": {
+          "type": "number"
         }
       }
     },
@@ -650,15 +884,15 @@
               "type": "number",
               "example": 303730
             },
-            "koeff_death": {
+            "coeff_death": {
               "type": "number",
               "example": 0
             },
-            "koeff_birth": {
+            "coeff_birth": {
               "type": "number",
               "example": 0
             },
-            "koeff_migration": {
+            "coeff_migration": {
               "type": "number",
               "example": 0
             }
@@ -898,6 +1132,14 @@
               "example": "..."
             }
           }
+        }
+      },
+      "mig_forecast_200": {
+        "title": "Sample",
+        "type": "array",
+        "items": {
+          "type": "integer",
+          "example": -92
         }
       },
       "area_needs_json_200": {

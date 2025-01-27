@@ -1,21 +1,20 @@
 #для работы с таблицами
-import numpy as np
 import pandas as pd
-
 import os
-
 #для полного копирования данных
 import copy
-
 #для создания запросов к api
 import requests
-
 #для работы с json-файлами
 import json
 
+
 terr_api = os.environ.get('TERRITORY_API')
+file_path = 'app_package/src/for_val_ident/'
 #признаки, которые не делятся на население
-non_pop_features = ['livarea', 'consnewapt', 'avgsalary', 'avgemployers', 'pollutcapturedperc', 'harvest', 'litstreetperc']
+non_pop_features = ['livarea', 'consnewapt', 'avgsalary', 'avgemployers', 
+                    'pollutcapturedperc', 'harvest', 'litstreetperc']
+
 
 def get_oktmo(territory_id: int) -> int:
 	"""
@@ -122,15 +121,15 @@ def recount_data_for_reg(reg_df: pd.DataFrame) -> pd.DataFrame:
 	return reg_df.apply(lambda s: (s - s.min()) / (s.max() - s.min()), axis = 0)
 
 def get_features_from_db(territory_id: int):
-	p_id = requests.get(url = f"http://10.32.1.107:5300/api/v1/territory/{territory_id}").json()['parent']['id']
-	district_id_lst = requests.get(url = f"http://10.32.1.107:5300/api/v1/all_territories_without_geometry?parent_id={p_id}&get_all_levels=false&cities_only=false&ordering=asc").json()
+	p_id = requests.get(url = terr_api+"api/v1/territory/{territory_id}").json()['parent']['id']
+	district_id_lst = requests.get(url = terr_api+"api/v1/all_territories_without_geometry?parent_id={p_id}&get_all_levels=false&cities_only=false&ordering=asc").json()
 	district_id_lst = list(map(lambda x: [x['territory_id'], x['oktmo_code']], district_id_lst))
 	db_features = {'services': [(21, 'kindergarden'),]}
 	for i in db_features['services']:
 		feature_name = i[1]
 		feature_dict = dict()
 		for j in district_id_lst:
-			get_res = requests.get(url = f"http://10.32.1.107:5300/api/v1/territory/{j[0]}/services?service_type_id={i[0]}&include_child_territories=true&cities_only=false&page=1&page_size=1").json()
+			get_res = requests.get(url = terr_api+"api/v1/territory/{j[0]}/services?service_type_id={i[0]}&include_child_territories=true&cities_only=false&page=1&page_size=1").json()
 			val = get_res['count']
 			feature_dict[j[1]] = val
 		feature_ser = pd.Series(data = feature_dict, index = feature_dict.keys(), name = feature_name)
@@ -140,7 +139,7 @@ def get_features_from_db(territory_id: int):
 	pass
 
 def get_csv_features_from_db(feature_type, feature_id):
-	regions = list(map(lambda x: x['territory_id'], requests.get(url = "http://10.32.1.107:5300/api/v1/all_territories_without_geometry", params = {"parent_id": 12639}).json()))
+	regions = list(map(lambda x: x['territory_id'], requests.get(url = terr_api+"api/v1/all_territories_without_geometry", params = {"parent_id": 12639}).json()))
 	districts = list()
 	for reg in regions:
 		districts.append(reg)
@@ -162,9 +161,9 @@ def change_features(oktmo: int, changes_dict: dict, reg_df: pd.DataFrame) -> pd.
 	 ...
 	 "<Название последнего изменённого индикатора>": <новое значение>}
 	"""
-	with open('app_package/src/norm_dict.json') as json_file:
+	with open(file_path+'norm_dict.json') as json_file:
 		norm_dict = json.load(json_file)
-	population = pd.read_csv('app_package/src/population_light.csv', sep = ';')
+	population = pd.read_csv(file_path+'population_light.csv', sep = ';')
 	population = population[population.oktmo == oktmo].popsize.iloc[0]
 	for indicator, value in changes_dict.items():
 		if indicator in non_pop_features:
@@ -199,7 +198,7 @@ def muni_tab(territory_id: int, feature_changed = False, changes_dict = "") -> j
 	reg_oktmo = oktmo - (oktmo % 1000000)
 
 	#загружаем общую таблицу
-	full_df = pd.read_csv('app_package/src/full_df4.csv', sep = ';', index_col = 0)
+	full_df = pd.read_csv(file_path+'full_df4.csv', sep = ';', index_col = 0)
 
 	#получаем таблицу региона
 	reg_df = full_df[(full_df.index >= reg_oktmo) & (full_df.index < reg_oktmo + 1000000)]
@@ -215,7 +214,7 @@ def muni_tab(territory_id: int, feature_changed = False, changes_dict = "") -> j
 
 	##переводим таблицу индикаторов региона в таблицу значений "клеточек" для региона
 	#для этого загрузим таблицу коэффициентов
-	grid_coeffs = pd.read_json('app_package/src/grid_coeffs.json').reindex(['dev', 'soc', 'bas'])
+	grid_coeffs = pd.read_json(file_path+'grid_coeffs.json').reindex(['dev', 'soc', 'bas'])
 	reg_tab = reg_df_to_tab(reg_df, grid_coeffs)
 
 	#нормализуем полученные значения по региону

@@ -232,7 +232,6 @@ def add_ages_70_to_100(df):
             for prob, pop_size in zip(range(probs.shape[1]),
                                       first_cohort):
                 # раскидываем числа с учетом вероятностей
-                np.random.seed(27) 
                 q = np.random.multinomial(pop_size, probs[:,prob], size=1)[0]
                 res.append(q)
 
@@ -248,8 +247,15 @@ def add_ages_70_to_100(df):
         age_bracket_df = pd.concat(res_both_sex, axis=1)     
         df = pd.concat([df, age_bracket_df], axis=0)
         df.columns.set_names(['', "пол"], level=[0,1], inplace=True)
-
+            # объединяем с изначальными данными
+            #df = pd.concat([df, res], ignore_index=False, sort=True)
+    
+    
     # поставим название колонки индексов
     df.index.names = ['группа']
+    # перенесем колонку "пол" в начало
+    #cols = df.columns.tolist()
+    #cols = cols[-1:] + cols[:-1]
+    #df = df[cols]
     
     return df.round()
