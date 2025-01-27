@@ -82,6 +82,12 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/territory_id"
+          },
+          {
+            "$ref": "#/components/parameters/feature_changed"
+          },
+          {
+            "$ref": "#/components/parameters/changes_dict"
           }
         ],
         "responses": {
@@ -488,7 +494,7 @@
         "description": "Include migration destinations info.",
         "required": false,
         "schema": {
-          "type": "bool"
+          "type": "boolean"
         }
       },
       "change_lo_level": {
@@ -498,7 +504,27 @@
         "description": "Group auxiliary areas one level higher.",
         "required": false,
         "schema": {
-          "type": "bool"
+          "type": "boolean"
+        }
+      },
+      "feature_changed": {
+        "name": "feature_changed",
+        "default": false,
+        "in": "query",
+        "description": "Whether a user changed some parameters for launching a scenario.",
+        "required": false,
+        "schema": {
+          "type": "boolean"
+        }
+      },
+      "changes_dict": {
+        "name": "changes_dict",
+        "default": "{}",
+        "in": "query",
+        "description": "New values of the parameters changed by a user for a scenario (json).",
+        "required": false,
+        "schema": {
+          "type": "string"
         }
       },
       "year": {
@@ -858,15 +884,15 @@
               "type": "number",
               "example": 303730
             },
-            "koeff_death": {
+            "coeff_death": {
               "type": "number",
               "example": 0
             },
-            "koeff_birth": {
+            "coeff_birth": {
               "type": "number",
               "example": 0
             },
-            "koeff_migration": {
+            "coeff_migration": {
               "type": "number",
               "example": 0
             }

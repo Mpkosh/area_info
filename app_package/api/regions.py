@@ -358,7 +358,7 @@ def main_migr():
         fin_df = gpd.GeoDataFrame(fin_df).set_geometry('geometry')
         from_to_geom = from_to_geom.set_geometry('geometry')
         from_to_lines = from_to_lines.set_geometry('line')
-        return [fin_df.to_json(), from_to_lines.to_json(), from_to_lines.to_json()]
+        return [fin_df.to_json(), from_to_geom.to_json(), from_to_lines.to_json()]
     else:
         return Response(result.set_geometry('geometry').to_json(), 
                         mimetype='application/json')
@@ -385,7 +385,7 @@ def detailed_migr():
                         mimetype='application/json')
 
 
-@bp_api.route('/regions/values_identities', methods=['GET'])
+@bp_api.route('/migrations/forecast', methods=['GET'])
 @cross_origin()
 def mig_forecast():
     features = ['year', 'popsize', 'avgemployers', 'avgsalary', 'shoparea', 
