@@ -228,9 +228,6 @@
             "$ref": "#/components/parameters/hospitals"
           },
           {
-            "$ref": "#/components/parameters/avgemployers"
-          },
-          {
             "$ref": "#/components/parameters/beforeschool"
           }
         ],
