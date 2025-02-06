@@ -19,7 +19,7 @@ def get_all_children_data(session, territory_id=34, from_api=True):
     try:
         # все населенные пункты, ГП, СП, входящие в заданный район
         url = territories_api + 'api/v2/territories'
-        params = {'parent_id':territory_id,'get_all_levels':'true','cities_only':'false','page_size':'1000'}
+        params = {'parent_id':territory_id,'get_all_levels':'true','cities_only':'false','page_size':'5000'}
         #url = territories_api + f'api/v1/all_territories?parent_id={territory_id}&get_all_levels=True'
         r = session.get(url, params=params)
         children = pd.DataFrame(r.json())
@@ -38,13 +38,26 @@ def get_all_children_data(session, territory_id=34, from_api=True):
     return all_children
 
 
-def clip_all_children(all_children):
+def clip_all_children(all_children, p_id=34):
     a = all_children.copy()
     a['centre_point'] = a['centre_point'].apply(lambda x: create_point(x))
     a = a.drop(columns='geometry').set_geometry('centre_point')
     
     # объединим, чтобы для каждого ГП/СП был один полигон
-    buff = a[a.level==5].dissolve(by='parent.name').set_crs(epsg=4326)
+    
+    gpsp_with_kids = a[a.level==5].dissolve(by='parent.name')
+    
+    # для ЛенОбласти будет непустое
+    gpsp_with_parent = a[(a.level==4)&(a['parent.id']!=int(p_id))][['territory_id','name',
+                                                               'level','parent.id','parent.name']]
+
+    if gpsp_with_parent.shape[0]:
+        buff = gpsp_with_kids[['centre_point']].merge(gpsp_with_parent,
+                                                      left_index=True, 
+                                                      right_on='name'
+                                                      ).dissolve(by='parent.name')
+    else:
+        buff = gpsp_with_kids
     '''
     # вручную режем по границе КАЖДОГО ГП/СП, 
     # тк если на втором месте в .clip() - датафрейм, то режет по его общей внешней границе
@@ -140,7 +153,7 @@ def get_density_data(session, territory_id=34, from_api=False):
     all_children = get_all_children_data(session, territory_id, from_api)
     
     # вручную режем по границе КАЖДОГО ГП/СП
-    np_clipped = clip_all_children(all_children)
+    np_clipped = clip_all_children(all_children, p_id=territory_id)
     vills_in_area = np_clipped.reset_index().set_crs(epsg=4326)[['parent.name','centre_point']]
     '''
     # деревни в виде точек
