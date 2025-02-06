@@ -208,7 +208,7 @@ def density_data():
     
     # создаем геодатафрейм и вставляем данные по координатам
     df = gpd.GeoDataFrame(places_df)
-    print(df['geometry'])
+    #print(df['geometry'])
     df['geometry'] = df['geometry'].apply(lambda x: create_polygon(x['coordinates'][0]))
     df['geometry'].crs = 'EPSG:4326'
     df = df.set_geometry('geometry')
@@ -356,6 +356,7 @@ def main_migr():
     if with_mig_dest:
         fin_df, from_to_geom, from_to_lines = result
         fin_df = gpd.GeoDataFrame(fin_df).set_geometry('geometry')
+        
         from_to_geom = from_to_geom.set_geometry('geometry')
         from_to_lines = from_to_lines.set_geometry('line')
         return [fin_df.to_json(), from_to_geom.to_json(), from_to_lines.to_json()]

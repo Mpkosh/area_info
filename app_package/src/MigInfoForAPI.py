@@ -87,6 +87,7 @@ def info(territory_id, show_level=0, detailed=False,
         fin['oktmo'] = [current_territory.oktmo]
         fin['name'] = [current_territory.name]
         fin['geometry'] = [current_territory.geometry]
+        fin['centre_point'] = [current_territory.centre_point]
         
         # добавляем направления миграции
         if with_mig_dest:
@@ -143,6 +144,7 @@ def info(territory_id, show_level=0, detailed=False,
         fin_df['oktmo'] = [cl.oktmo for cl in terr_classes]
         fin_df['name'] = [cl.name for cl in terr_classes]
         fin_df['geometry'] = [cl.geometry for cl in terr_classes]
+        fin_df['centre_point'] = [cl.centre_point for cl in terr_classes]
         
         if (show_level==4)&(fill_in_4):
             # восполняем тем, что есть; на всякий случай сортируем
@@ -193,10 +195,14 @@ def info(territory_id, show_level=0, detailed=False,
         fin_df = main_migration(session, fin_df)    
         fin_df = main_factors(session, fin_df)
         fin_df = gpd.GeoDataFrame(fin_df, geometry='geometry')
+        #print(fin_df.head(2)[['centre_point','name','geometry']])
         
     if 'oktmo' in fin_df.columns:
         fin_df = fin_df.drop(columns=['oktmo']).fillna(0) 
-            
+    
+    # меняем, чтобы удалось преобразовать в json
+    fin_df['centre_point'] = fin_df['centre_point'].astype('str')
+    
     if with_mig_dest:
         return [fin_df, from_to_geom, 
                 gpd.GeoDataFrame(from_to_lines, geometry='line')]
@@ -256,11 +262,13 @@ def main_info(session, current_territory, show_level):
         url = terr_api + f'api/v1/territory/{current_territory.territory_id}'
         r = session.get(url)
         r_main = r.json()
+        
         current_territory.territory_type = r_main['territory_type']['territory_type_id']
         current_territory.name = r_main['name']
         current_territory.oktmo = r_main['oktmo_code']
         geom_data = gpd.GeoDataFrame.from_features([r_main])[['geometry']]
         current_territory.geometry = geom_data.values[0][0]
+        current_territory.centre_point = create_point(r_main['centre_point'])
         
         try:
             current_territory.parent = Territory(r_main['parent']['id'])
@@ -273,6 +281,7 @@ def main_info(session, current_territory, show_level):
             current_territory.df['oktmo'] = current_territory.oktmo
             current_territory.df['geometry'] = geom_data
             current_territory.df['name'] = current_territory.name
+            current_territory.df['centre_point'] = current_territory.centre_point
             
     except:
         raise requests.exceptions.RequestException(f'Problem with {r.url}')
@@ -284,6 +293,7 @@ def child_to_class(x, parent_class):
     child.oktmo = x['oktmo_code']
     child.df['name'] = child.name
     child.geometry = x['geometry']
+    child.centre_point = create_point(x['centre_point'])
     child.territory_type = parent_class.territory_type+1
     
     child.parent = parent_class
@@ -300,7 +310,7 @@ def get_children(session, parent_id, parent_class):
         if r['results']:
             children_type = parent_class.territory_type+1
             res = pd.json_normalize(r['results'], max_level=0)
-            fin = res[['territory_id','name','oktmo_code']].copy()
+            fin = res[['territory_id','name','oktmo_code','centre_point']].copy()
                                    
             if children_type <= 3:
                 with_geom = gpd.GeoDataFrame.from_features(r['results']
