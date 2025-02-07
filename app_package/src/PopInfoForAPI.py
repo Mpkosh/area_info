@@ -166,7 +166,7 @@ def main_info(session, current_territory, show_level):
     try:
         url = terr_api + f'api/v1/territory/{current_territory.territory_id}'
         r_main = session.get(url).json()
-        current_territory.territory_type = r_main['territory_type']['territory_type_id']
+        current_territory.territory_type = r_main['territory_type']['id']
         current_territory.name = r_main['name']
         current_territory.oktmo = r_main['oktmo_code']
         geom_data = gpd.GeoDataFrame.from_features([r_main])[['geometry']]
@@ -260,7 +260,7 @@ def children_pop_dnst(session, parent_class, pop_and_dnst=True):
         
         children_type = parent_class.territory_type+1
         if children_type <= 3:
-            with_geom = gpd.GeoDataFrame.from_features(r['results'])
+            with_geom = gpd.GeoDataFrame.from_features(r.json()['results'])
             fin['geometry'] = with_geom['geometry']
         else:
             fin.loc[:,'geometry'] = res['centre_point'].apply(lambda x: create_point(x))
