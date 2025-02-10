@@ -110,6 +110,7 @@ def info(territory_id, show_level=0, detailed=False,
             siblings['oktmo'] = [cl.oktmo for cl in terr_classes]
             siblings['name'] = [cl.name for cl in terr_classes]
             siblings['geometry'] = [cl.geometry for cl in terr_classes]
+            #siblings['centre_point'] = [cl.centre_point for cl in terr_classes]
 
             show_level = terr_classes[0].territory_type
             from_to_geom, from_to_lines = mig_dest_prepared(show_level=show_level, 
@@ -195,13 +196,14 @@ def info(territory_id, show_level=0, detailed=False,
         fin_df = main_migration(session, fin_df)    
         fin_df = main_factors(session, fin_df)
         fin_df = gpd.GeoDataFrame(fin_df, geometry='geometry')
+        # меняем, чтобы удалось преобразовать в json
+        fin_df['centre_point'] = fin_df['centre_point'].astype('str')
         #print(fin_df.head(2)[['centre_point','name','geometry']])
         
     if 'oktmo' in fin_df.columns:
         fin_df = fin_df.drop(columns=['oktmo']).fillna(0) 
     
-    # меняем, чтобы удалось преобразовать в json
-    fin_df['centre_point'] = fin_df['centre_point'].astype('str')
+    
     
     if with_mig_dest:
         return [fin_df, from_to_geom, 
