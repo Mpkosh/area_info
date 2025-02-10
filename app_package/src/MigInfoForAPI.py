@@ -119,9 +119,11 @@ def info(territory_id, show_level=0, detailed=False,
                                                            md_year=md_year)
 
         fin_df = pd.DataFrame([])
+        
         fin_df = detailed_migration(session, current_territory, fin_df)
         fin_df = fin_df.rename_axis('year').reset_index()
         fin_df = detailed_factors(session, current_territory, fin_df)
+        #fin_df['Численность населения'] = [current_territory.pop_all]
       
     else:
         if show_level < current_territory.territory_type:
@@ -204,7 +206,6 @@ def info(territory_id, show_level=0, detailed=False,
         fin_df = fin_df.drop(columns=['oktmo']).fillna(0) 
     
     
-    
     if with_mig_dest:
         return [fin_df, from_to_geom, 
                 gpd.GeoDataFrame(from_to_lines, geometry='line')]
@@ -217,7 +218,7 @@ def main_factors(session, fin_df):
     sdf = pd.read_csv(file_path+'superdataset (full data).csv')
     sdf['oktmo'] = sdf['oktmo'].astype(str)
     sdf = sdf[(sdf.year==sdf.year.max())&(sdf.oktmo.isin(fin_df['oktmo']))]
-    sdf = sdf.sort_values(by='year').drop(['name','year', 'saldo', 'popsize'],
+    sdf = sdf.sort_values(by='year').drop(['name','year', 'saldo'],
                    axis='columns').reset_index(drop=True)
     fin_df = fin_df.merge(sdf, on='oktmo', how='left')
     fin_df = rus_clms_factors(fin_df)
@@ -277,6 +278,7 @@ def main_info(session, current_territory, show_level):
             current_territory.pop_all = r_main['properties']['Численность населения']
             current_territory.parent.name = r_main['parent']['name']
         except KeyError:
+            current_territory.pop_all = 0
             pass
         
         if show_level == current_territory.territory_type:
@@ -402,7 +404,7 @@ def detailed_factors(session, current_territory, fin_df):
 
     oktmo = current_territory.oktmo
     sdf = sdf[(sdf.oktmo.isin([oktmo]))&(sdf.year>=2019)]
-    sdf = sdf.sort_values(by='year').drop(['name', 'saldo', 'popsize'],
+    sdf = sdf.sort_values(by='year').drop(['name', 'saldo'],
                        axis='columns').reset_index(drop=True)
     
     fin_df = fin_df.merge(sdf, how='left', on='year')
@@ -585,7 +587,7 @@ def graph_lo_2level(pre_result, md_year):
 # _________ Для русских колонок _________
 
 def rus_clms_factors(fin_df):
-    mig_f_rus = ['Среднее число работников организаций (чел.)', 'Средняя зарплата (руб.)', 
+    mig_f_rus = ['Численность населения (чел.)','Среднее число работников организаций (чел.)', 'Средняя зарплата (руб.)', 
                  'Площадь торговых залов магазинов (кв. м.)', 'Количество мест в ресторанах кафе барах (место)', 
                  'Оборот розничной торговли без малых предприятий (тыс. руб.)','Оборот общественного питания (тыс. руб.)', 
                  'Введенные жилые дома (кв. м)', 'Введенные квартиры (шт. на 1000 чел.)',
@@ -597,7 +599,7 @@ def rus_clms_factors(fin_df):
                  'Число театров (шт.)', 'Лечебно-профилактические организации (шт.)','Мощность поликлиник (шт.)',
                  'Число мест в дошкольных обр. учреждениях (шт.)', 'Число общеобразовательных организаций (шт.)',
                  'Затраты на охрану окружающей среды (тыс. руб.)', 'Отгружено товаров собственного производства (тыс. руб.)']
-    mig_f_eng = ['avgemployers', 'avgsalary', 'shoparea',
+    mig_f_eng = ['popsize','avgemployers', 'avgsalary', 'shoparea',
                    'foodseats', 'retailturnover', 'foodservturnover', 'consnewareas',
                    'consnewapt', 'livarea', 'sportsvenue', 'servicesnum', 'roadslen',
                    'livestock', 'harvest', 'agrprod', 'invest', 'budincome', 'funds',
