@@ -263,7 +263,7 @@ def main_info(session, current_territory, show_level):
         r = session.get(url)
         r_main = r.json()
         
-        current_territory.territory_type = r_main['territory_type']['territory_type_id']
+        current_territory.territory_type = r_main['territory_type']['id']
         current_territory.name = r_main['name']
         current_territory.oktmo = r_main['oktmo_code']
         geom_data = gpd.GeoDataFrame.from_features([r_main])[['geometry']]
