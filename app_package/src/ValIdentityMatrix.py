@@ -182,9 +182,9 @@ def change_features(oktmo: int, changes_dict: dict, reg_df: pd.DataFrame) -> pd.
 	 ...
 	 "<Название последнего изменённого индикатора>": <новое значение>}
 	"""
-	with open('app_package/src/norm_dict.json') as json_file:
+	with open('app_package/src/for_val_ident/norm_dict.json') as json_file:
 		norm_dict = json.load(json_file)
-	population = pd.read_csv('app_package/src/population_light.csv', sep = ';')
+	population = pd.read_csv('app_package/src/for_val_ident/population_light.csv', sep = ';')
 	population = population[population.oktmo == oktmo].popsize.iloc[0]
 	for indicator, value in changes_dict.items():
 		if indicator in non_pop_features:
@@ -219,7 +219,7 @@ def muni_tab(territory_id: int, feature_changed = False, changes_dict = "") -> j
 	reg_oktmo = oktmo - (oktmo % 1000000)
 
 	#загружаем общую таблицу
-	full_df = pd.read_csv('app_package/src/full_df4.csv', sep = ';', index_col = 0)
+	full_df = pd.read_csv('app_package/src/for_val_ident/full_df4.csv', sep = ';', index_col = 0)
 
 	#получаем таблицу региона
 	reg_df = full_df[(full_df.index >= reg_oktmo) & (full_df.index < reg_oktmo + 1000000)]
@@ -235,7 +235,7 @@ def muni_tab(territory_id: int, feature_changed = False, changes_dict = "") -> j
 
 	##переводим таблицу индикаторов региона в таблицу значений "клеточек" для региона
 	#для этого загрузим таблицу коэффициентов
-	grid_coeffs = pd.read_json('app_package/src/grid_coeffs.json').reindex(['dev', 'soc', 'bas'])
+	grid_coeffs = pd.read_json('app_package/src/for_val_ident/grid_coeffs.json').reindex(['dev', 'soc', 'bas'])
 	reg_tab = reg_df_to_tab(reg_df, grid_coeffs)
 
 	#нормализуем полученные значения по региону
