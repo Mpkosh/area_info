@@ -121,6 +121,28 @@ def recount_data_for_reg(reg_df: pd.DataFrame) -> pd.DataFrame:
 
 	return reg_df.apply(lambda s: (s - s.min()) / (s.max() - s.min()), axis = 0)
 
+
+"""
+#################################################################
+Следующие функции работают со сбором данных из базы проекта
+"""
+
+def get_feature_for_district_from_db(territory_id: int, feature_id: int, feature_type = ['services', 'service_type']):
+	get_res = requests.get(url = f"http://10.32.1.107:5300/api/v1/territory/{territory_id}/{feature_type[0]}?{feature_type[1]}_id={feature_id}&include_child_territories=true&cities_only=false&page=1&page_size=1").json()
+	return get_res['count']
+
+def get_csv_features_from_db(feature_id: int, feature_type = ['services', 'service_type']):
+	regions = list(map(lambda x: x['territory_id'], requests.get(url = "http://10.32.1.107:5300/api/v1/all_territories_without_geometry", params = {"parent_id": 12639}).json()))
+	feature_ser = list()
+	for reg in tqdm(regions):
+		r = requests.get(url = "http://10.32.1.107:5300/api/v1/all_territories_without_geometry", params = {"parent_id": reg}).json()
+		tmp_districts = list(map(lambda x: [x['territory_id'], x['oktmo_code']], r))
+		for i in range(len(tmp_districts)):
+			tmp_districts[i] = [tmp_districts[i][0], tmp_districts[i][1], get_feature_for_district_from_db(tmp_districts[i][0], feature_id, feature_type)]
+		feature_ser.extend(tmp_districts)
+	feature_ser = pd.DataFrame(data = feature_ser, columns = ['territory_id', 'oktmo', 'value'])
+	return feature_ser
+
 def get_features_from_db(territory_id: int):
 	p_id = requests.get(url = f"http://10.32.1.107:5300/api/v1/territory/{territory_id}").json()['parent']['id']
 	district_id_lst = requests.get(url = f"http://10.32.1.107:5300/api/v1/all_territories_without_geometry?parent_id={p_id}&get_all_levels=false&cities_only=false&ordering=asc").json()
@@ -139,16 +161,14 @@ def get_features_from_db(territory_id: int):
 	"""
 	pass
 
-def get_csv_features_from_db(feature_type, feature_id):
-	regions = list(map(lambda x: x['territory_id'], requests.get(url = "http://10.32.1.107:5300/api/v1/all_territories_without_geometry", params = {"parent_id": 12639}).json()))
-	districts = list()
-	for reg in regions:
-		districts.append(reg)
-
-	pass
-
 def refresh_coeff_table():
 	pass
+
+"""
+Конец функций, который работают со сбором данных из базы проекта
+#################################################################
+"""
+
 
 """
 Пересчёт данных для подсчёта оценки в случае пользовательских изменений значений соцэкономиндикаторов
@@ -226,3 +246,11 @@ def muni_tab(territory_id: int, feature_changed = False, changes_dict = "") -> j
 	
 	#теперь выдаём это, как json, и всё
 	return tab.to_json()
+
+
+
+
+
+
+
+
