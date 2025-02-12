@@ -22,7 +22,7 @@ social_api = os.environ.get('SOCIAL_API')
 terr_api = os.environ.get('TERRITORY_API') 
 file_path = 'app_package/src/for_mig_api/'
 
-       
+
 class Territory():
     
     def __init__(self, territory_id=34):
@@ -69,19 +69,26 @@ def info_for_graph(territory_id, show_level=0, md_year=2022):
 
 
 def info(territory_id, show_level=0, detailed=False, 
-         with_mig_dest=False, fill_in_4=False, md_year=2022, change_lo_level=True):
+         with_mig_dest=False, fill_in_4=False, md_year=2022, 
+         change_lo_level=True, from_file=False):
+    
     session = requests.Session()
     current_territory = Territory(territory_id)
     main_info(session, current_territory, show_level)
     
-    if with_mig_dest & (show_level == 4):
-        raise NotImplementedError('Migration destinations for show_level=4 are not available yet')
+    if with_mig_dest:
         
-    if md_year not in [2019,2020,2021,2022]:
-        raise ValueError(f'Migration destinations are available for years 2019-2022, given {md_year}')
+        if (show_level == 4):
+            raise NotImplementedError('Migration destinations for show_level=4 are not available yet')
+    
+        if (show_level == 1) & (md_year not in [2020,2021,2022,2023]):
+             raise NotImplementedError('Migration destinations for show_level=1 are available for years 2020-2023; given {md_year}')
+             
+        if md_year not in [2019,2020,2021,2022]:
+            raise ValueError(f'Migration destinations for show_level>1 are available for years 2019-2022, given {md_year}')
+    
             
     if detailed:
-        #show_level = current_territory.territory_type
         fin = pd.DataFrame([])
         fin['territory_id'] = [current_territory.territory_id]
         fin['oktmo'] = [current_territory.oktmo]
@@ -91,32 +98,41 @@ def info(territory_id, show_level=0, detailed=False,
         
         # добавляем направления миграции
         if with_mig_dest:
-            # собираем территории того же родителя
-            n_children = 1
-            current_territory.parent.territory_type = current_territory.territory_type-1
-            terr_classes = [current_territory.parent]
-            terr_ids = [current_territory.parent.territory_id]
-            # если нужен уровень детальнее
-            for i in range(n_children):
-                for ter_id, ter_class in zip(terr_ids, terr_classes):
-                    get_children(session, ter_id, ter_class)
-                # новый набор для итерации    
-                terr_classes = [child for one_class in terr_classes for child in one_class.children]
-                # новые id тер-рий
-                terr_ids = [one_class.territory_id for one_class in terr_classes]
-
-            siblings = pd.DataFrame([])
-            siblings['territory_id'] = [cl.territory_id for cl in terr_classes]
-            siblings['oktmo'] = [cl.oktmo for cl in terr_classes]
-            siblings['name'] = [cl.name for cl in terr_classes]
-            siblings['geometry'] = [cl.geometry for cl in terr_classes]
-            #siblings['centre_point'] = [cl.centre_point for cl in terr_classes]
-
-            show_level = terr_classes[0].territory_type
-            from_to_geom, from_to_lines = mig_dest_prepared(show_level=show_level, 
-                                                            fin_df=fin, siblings=siblings, 
-                                                            change_lo_level=change_lo_level,
-                                                           md_year=md_year)
+            
+            # для уровня областей быстрее из файла (surpise-surprise)
+            if from_file & (show_level == 1):
+                from_to_geom, from_to_lines = mig_dest_prepared(show_level=show_level, 
+                                                                fin_df=fin, siblings=[], 
+                                                                change_lo_level=change_lo_level, 
+                                                                md_year=md_year,
+                                                                from_file=from_file)
+            else:    
+                # собираем территории того же родителя
+                n_children = 1
+                current_territory.parent.territory_type = current_territory.territory_type-1
+                terr_classes = [current_territory.parent]
+                terr_ids = [current_territory.parent.territory_id]
+                # если нужен уровень детальнее
+                for i in range(n_children):
+                    for ter_id, ter_class in zip(terr_ids, terr_classes):
+                        get_children(session, ter_id, ter_class)
+                    # новый набор для итерации    
+                    terr_classes = [child for one_class in terr_classes for child in one_class.children]
+                    # новые id тер-рий
+                    terr_ids = [one_class.territory_id for one_class in terr_classes]
+    
+                siblings = pd.DataFrame([])
+                siblings['territory_id'] = [cl.territory_id for cl in terr_classes]
+                siblings['oktmo'] = [cl.oktmo for cl in terr_classes]
+                siblings['name'] = [cl.name for cl in terr_classes]
+                siblings['geometry'] = [cl.geometry for cl in terr_classes]
+                siblings['centroid'] = [cl.centre_point for cl in terr_classes]
+    
+                show_level = terr_classes[0].territory_type
+                from_to_geom, from_to_lines = mig_dest_prepared(show_level=show_level, 
+                                                                fin_df=fin, siblings=siblings, 
+                                                                change_lo_level=change_lo_level,
+                                                               md_year=md_year)
 
         fin_df = pd.DataFrame([])
         
@@ -165,42 +181,52 @@ def info(territory_id, show_level=0, detailed=False,
         
         # добавляем направления миграции
         if with_mig_dest:
-            if n_children!=0:
-                siblings = fin_df[['territory_id','oktmo','name','geometry']].copy()
-                
-            # если детей не выбирали, т.е одна тер-рия
-            if n_children==0:
-                # собираем территории того же родителя, "братьев/сестер"
-                current_territory.parent.territory_type = current_territory.territory_type-1
-                terr_classes = [current_territory.parent]
-                terr_ids = [current_territory.parent.territory_id]
-                
-                for i in range(1):
-                    for ter_id, ter_class in zip(terr_ids, terr_classes):
-                        get_children(session, ter_id, ter_class)
-                    # новый набор для итерации    
-                    terr_classes = [child for one_class in terr_classes for child in one_class.children]
-                    # новые id тер-рий
-                    terr_ids = [one_class.territory_id for one_class in terr_classes]
-
-                siblings = pd.DataFrame([])
-                siblings['territory_id'] = [cl.territory_id for cl in terr_classes]
-                siblings['oktmo'] = [cl.oktmo for cl in terr_classes]
-                siblings['name'] = [cl.name for cl in terr_classes]
-                siblings['geometry'] = [cl.geometry for cl in terr_classes]
-                
-                show_level = terr_classes[0].territory_type
             
-            from_to_geom, from_to_lines = mig_dest_prepared(show_level=show_level, 
-                                                            fin_df=fin_df, siblings=siblings, 
-                                                            change_lo_level=change_lo_level)
+            # для уровня областей быстрее из файла (surpise-surprise)
+            if from_file & (show_level == 1):
+                from_to_geom, from_to_lines = mig_dest_prepared(show_level=show_level, 
+                                                                fin_df=fin_df, siblings=[], 
+                                                                change_lo_level=change_lo_level, 
+                                                                md_year=md_year,
+                                                                from_file=from_file)
+            else:
+                if n_children!=0:
+                    siblings = fin_df[['territory_id','oktmo','name','geometry']].copy()
+                    
+                # если детей не выбирали, т.е одна тер-рия
+                if n_children==0:
+                    # собираем территории того же родителя, "братьев/сестер"
+                    current_territory.parent.territory_type = current_territory.territory_type-1
+                    terr_classes = [current_territory.parent]
+                    terr_ids = [current_territory.parent.territory_id]
+                    
+                    
+                    for i in range(1):
+                        for ter_id, ter_class in zip(terr_ids, terr_classes):
+                            get_children(session, ter_id, ter_class)
+                        # новый набор для итерации    
+                        terr_classes = [child for one_class in terr_classes for child in one_class.children]
+                        # новые id тер-рий
+                        terr_ids = [one_class.territory_id for one_class in terr_classes]
+    
+                    siblings = pd.DataFrame([])
+                    siblings['territory_id'] = [cl.territory_id for cl in terr_classes]
+                    siblings['oktmo'] = [cl.oktmo for cl in terr_classes]
+                    siblings['name'] = [cl.name for cl in terr_classes]
+                    siblings['geometry'] = [cl.geometry for cl in terr_classes]
+                    siblings['centroid'] = [cl.centre_point for cl in terr_classes]
+                    show_level = terr_classes[0].territory_type
+                
+                from_to_geom, from_to_lines = mig_dest_prepared(show_level=show_level, 
+                                                                fin_df=fin_df, siblings=siblings,
+                                                                change_lo_level=change_lo_level,
+                                                                md_year=md_year)
             
         fin_df = main_migration(session, fin_df)    
         fin_df = main_factors(session, fin_df)
         fin_df = gpd.GeoDataFrame(fin_df, geometry='geometry')
         # меняем, чтобы удалось преобразовать в json
         fin_df['centre_point'] = fin_df['centre_point'].astype('str')
-        #print(fin_df.head(2)[['centre_point','name','geometry']])
         
     if 'oktmo' in fin_df.columns:
         fin_df = fin_df.drop(columns=['oktmo']).fillna(0) 
@@ -266,7 +292,12 @@ def main_info(session, current_territory, show_level):
         r = session.get(url)
         r_main = r.json()
         
-        current_territory.territory_type = r_main['territory_type']['id']
+        ter_type = r_main['territory_type']['id']
+        # город федерального значения приравниваем к области
+        if ter_type==17:
+            ter_type=1
+            
+        current_territory.territory_type = ter_type
         current_territory.name = r_main['name']
         current_territory.oktmo = r_main['oktmo_code']
         geom_data = gpd.GeoDataFrame.from_features([r_main])[['geometry']]
@@ -487,17 +518,30 @@ def mig_dest_multipolygons(result, fin_df_with_centre):
 
 
 def mig_dest_prepared(show_level, fin_df, siblings, 
-                      change_lo_level=False, md_year=2022):
-    df_with_geom = pd.read_csv(file_path+'lo_3_parents.csv', 
-                               index_col=0)
-    if show_level > 2:
-        result = pd.read_csv(file_path+f'graph_LO_{show_level}level_{md_year}.csv',
-                             index_col=0)
-    else:
-        pre_result = pd.read_csv(file_path+'for_graph_LO_2level.csv',
-                                 index_col=0)
-        result = graph_lo_2level(pre_result, md_year)
+                      change_lo_level=False, md_year=2022, from_file=False):
+    
+    if show_level == 1:
+        if from_file:
+            siblings = pd.read_csv(file_path+'bd_id_geom_regions.csv', index_col=0)
         
+        df_with_geom = siblings.copy()
+        res_years = pd.read_csv(file_path+'obl_mig_no_tid_20-23.csv', 
+                                index_col=0)
+        yeartab = siblings.drop(columns=['oktmo']
+                               ).merge(res_years, on='name')
+        result = graph_lo_2level(yeartab, md_year)
+        
+    else:
+        df_with_geom = pd.read_csv(file_path+'lo_3_parents.csv', 
+                                   index_col=0)
+        if show_level > 2:
+            result = pd.read_csv(file_path+f'graph_LO_{show_level}level_{md_year}.csv',
+                                 index_col=0)
+        else:
+            pre_result = pd.read_csv(file_path+'for_graph_LO_2level.csv',
+                                     index_col=0)
+            result = graph_lo_2level(pre_result, md_year)
+            
     # линии только из заданных территорий
     uniq_ids = fin_df.territory_id.unique()
     result = result[(result.from_territory_id.isin([*uniq_ids])
@@ -508,9 +552,10 @@ def mig_dest_prepared(show_level, fin_df, siblings,
         # взять только колонки _parent и поменять названия
         df_with_geom = df_with_geom.iloc[:,4:].drop_duplicates()
         df_with_geom.columns = ['territory_id','oktmo','name','geometry']
-
-    df_with_geom.loc[:,'geometry'] = gpd.GeoSeries.from_wkt(df_with_geom['geometry'].astype(str))
-    df_with_geom.loc[:,'centroid'] = df_with_geom.geometry.apply(lambda x: x.centroid)
+    
+    if show_level>1:
+        df_with_geom.loc[:,'geometry'] = gpd.GeoSeries.from_wkt(df_with_geom['geometry'].astype(str))
+        df_with_geom.loc[:,'centroid'] = df_with_geom.geometry.apply(lambda x: x.centroid)
 
     # мерджим, чтобы добавить инф-ию по id и geometry
     #  для узла "откуда"
@@ -556,6 +601,7 @@ def mig_dest_prepared(show_level, fin_df, siblings,
     from_to_lines.loc[:,'from_territory_id'] = from_to_lines['from_territory_id'].astype(int)
     
     return from_to_geom, from_to_lines
+
 
 
 def graph_lo_2level(pre_result, md_year):

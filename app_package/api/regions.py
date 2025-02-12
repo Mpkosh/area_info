@@ -348,10 +348,13 @@ def main_migr():
     show_level = request.args.get('show_level', type = int, default=2)
     with_mig_dest = request.args.get('mig_destinations', type = is_it_true, default=False)
     change_lo_level = request.args.get('change_lo_level', type = is_it_true, default=True)
+    from_file = request.args.get('from_file', type = is_it_true, default=True)
+    
     result = MigInfoForAPI.info(territory_id=territory_id, 
                                 show_level=show_level, 
                                 with_mig_dest=with_mig_dest,
-                                change_lo_level=change_lo_level)
+                                change_lo_level=change_lo_level,
+                                from_file=from_file)
     
     if with_mig_dest:
         fin_df, from_to_geom, from_to_lines = result
@@ -371,10 +374,13 @@ def detailed_migr():
     territory_id = request.args.get('territory_id', type = int, default=34)
     with_mig_dest = request.args.get('mig_destinations', type = is_it_true, default=False)
     md_year = request.args.get('given_year', type = int, default=2022)
+    from_file = request.args.get('from_file', type = is_it_true, default=True)
+    
     result = MigInfoForAPI.info(territory_id=territory_id, 
                                 detailed=True, 
                                 with_mig_dest=with_mig_dest,
-                                md_year=md_year)
+                                md_year=md_year,
+                                from_file=from_file)
                             
     if with_mig_dest:
         fin_df, from_to_geom, from_to_lines = result
