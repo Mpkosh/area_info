@@ -13,13 +13,15 @@ def normbyinf(inputdata):
     thisrubfeatures = ['avgsalary', 'retailturnover', 'agrprod']
     
     infdata = pd.read_csv(file_path+"inflation14.csv")
-    for k in range(len(inputdata)):
-        # получить инфляцию за необходимый год
-        inflation = infdata[infdata['year'] == inputdata.iloc[k]['year']]   
-        for col in thisrubfeatures:
-            index = inputdata.columns.get_loc(col)
-            inputdata.iloc[k, index] = inputdata.iloc[k][col] * (
-                                            inflation.iloc[0]['inf'] / 100)
+    # если задан год больше 2023, берем инфляцию за 2023
+    if inputdata['year'].values[0] > 2023:
+        given_year = 2023
+    else:
+        given_year = inputdata['year'].values[0]
+    
+    # получить инфляцию за необходимый год
+    inflation = infdata[infdata['year'] == given_year]['inf'].values[0]
+    inputdata.loc[:,thisrubfeatures] = inputdata[thisrubfeatures] * inflation / 100
 
     return inputdata
 
