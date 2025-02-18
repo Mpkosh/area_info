@@ -125,7 +125,7 @@ def recount_data_for_reg(reg_df: pd.DataFrame) -> pd.DataFrame:
 """
 #################################################################
 Следующие функции работают со сбором данных из базы проекта
-"""
+
 
 def get_feature_for_district_from_db(territory_id: int, feature_id: int, feature_type = ['services', 'service_type']):
 	get_res = requests.get(url = f"http://10.32.1.107:5300/api/v1/territory/{territory_id}/{feature_type[0]}?{feature_type[1]}_id={feature_id}&include_child_territories=true&cities_only=false&page=1&page_size=1").json()
@@ -156,15 +156,15 @@ def get_features_from_db(territory_id: int):
 			val = get_res['count']
 			feature_dict[j[1]] = val
 		feature_ser = pd.Series(data = feature_dict, index = feature_dict.keys(), name = feature_name)
-	"""
-	we'll create a file feature_coeffs_db. And then we'll just load it. Besides we'll have a function of recalculating this file's data
-	"""
+	
+	#we'll create a file feature_coeffs_db. And then we'll just load it. Besides we'll have a function of recalculating this file's data
+	
 	pass
 
 def refresh_coeff_table():
 	pass
 
-"""
+
 Конец функций, который работают со сбором данных из базы проекта
 #################################################################
 """
@@ -194,6 +194,14 @@ def change_features(oktmo: int, changes_dict: dict, reg_df: pd.DataFrame) -> pd.
 		reg_df.loc[oktmo, indicator] = norm_new_val
 	return reg_df
 
+def color_intensity(row):
+	if pd.isnull(row['distr_vals']):
+		return None
+	elif row['distr_vals'] >= row['reg_means']:
+		return (row['distr_vals'] - row['reg_means']) / (row['reg_maxs'] - row['reg_means'])
+	else:
+		return -1 * (row['reg_means'] - row['distr_vals']) / (row['reg_means'] - row['reg_mins'])
+
 #Final function
 def muni_tab(territory_id: int, feature_changed = False, changes_dict = "") -> json:
 	"""
@@ -218,39 +226,80 @@ def muni_tab(territory_id: int, feature_changed = False, changes_dict = "") -> j
 	#получаем oktmo региона, в котором данное мун. образование находится
 	reg_oktmo = oktmo - (oktmo % 1000000)
 
-	#загружаем общую таблицу
-	full_df = pd.read_csv('app_package/src/for_val_ident/full_df4.csv', sep = ';', index_col = 0)
+	if reg_oktmo != 41000000 or True:
 
-	#получаем таблицу региона
-	reg_df = full_df[(full_df.index >= reg_oktmo) & (full_df.index < reg_oktmo + 1000000)]
+		#загружаем общую таблицу
+		full_df = pd.read_csv('app_package/src/for_val_ident/full_df4.csv', sep = ';', index_col = 0)
 
-	#проверка флажка об изменениях от пользователя и пересчёт таблицы (при необходимости)
-	if feature_changed:
-		changes_dict = json.loads(changes_dict)
-		print(changes_dict)
-		reg_df = change_features(oktmo, changes_dict, reg_df)
+		#получаем таблицу региона
+		reg_df = full_df[(full_df.index >= reg_oktmo) & (full_df.index < reg_oktmo + 1000000)]
 
-	#здесь надо сформировать таблицу с данными по доп модификаторам для районов данного региона
-	#reg_df2 = get_features_from_db(territory_id)
+		#проверка флажка об изменениях от пользователя и пересчёт таблицы (при необходимости)
+		if feature_changed:
+			changes_dict = json.loads(changes_dict)
+			print(changes_dict)
+			reg_df = change_features(oktmo, changes_dict, reg_df)
 
-	##переводим таблицу индикаторов региона в таблицу значений "клеточек" для региона
-	#для этого загрузим таблицу коэффициентов
-	grid_coeffs = pd.read_json('app_package/src/for_val_ident/grid_coeffs.json').reindex(['dev', 'soc', 'bas'])
-	reg_tab = reg_df_to_tab(reg_df, grid_coeffs)
+		#здесь надо сформировать таблицу с данными по доп модификаторам для районов данного региона
+		#reg_df2 = get_features_from_db(territory_id)
 
-	#нормализуем полученные значения по региону
-	reg_tab = recount_data_for_reg(reg_tab)
+		##переводим таблицу индикаторов региона в таблицу значений "клеточек" для региона
+		#для этого загрузим таблицу коэффициентов
+		grid_coeffs = pd.read_json('app_package/src/for_val_ident/grid_coeffs.json').reindex(['dev', 'soc', 'bas'])
+		reg_tab = reg_df_to_tab(reg_df, grid_coeffs)
 
-	#получим обратно значения клеточек для нашего мун. образования
-	tab = ser_to_tab(reg_tab.loc[oktmo], grid_coeffs)
-	
-	#теперь выдаём это, как json, и всё
-	return tab.to_json()
+		#нормализуем полученные значения по региону
+		reg_tab = recount_data_for_reg(reg_tab)
 
+		#вычислим средние, максимальные и минимальные показатели по региону после нормализации
+		reg_means = reg_tab.mean()
+		reg_maxs = reg_tab.max()
+		reg_mins = reg_tab.min()
 
+		#Переведём вычисленные по клеточкам значения в массивы из самого значения для данного района, среднего значения по региону и интенсивности цвета
+		#(положительная интенсивность - для зелёного цвета; отрицательная - для красного)
+		distr_ser = reg_tab.loc[oktmo]
+		distr_ser = pd.DataFrame({'distr_vals': distr_ser, 'reg_means': reg_means, 'reg_maxs': reg_maxs, 'reg_mins': reg_mins})
+		distr_ser['color'] = distr_ser.apply(color_intensity, axis = 1)
 
+		distr_ser['finals'] = distr_ser.apply(lambda x: [x['distr_vals'], x['reg_means'], x['color']], axis = 1)
 
+		#получим обратно значения клеточек для нашего мун. образования
+		tab = ser_to_tab(distr_ser['finals'], grid_coeffs)
+		
+		#теперь выдаём это, как json, и всё
+		return tab.to_json()
 
+	else:
+		pass
 
+"""
+		#загружаем общую таблицу
+		full_df = pd.read_csv('app_package/src/for_val_ident/full_df4.csv', sep = ';', index_col = 0)
 
+		#получаем таблицу региона
+		reg_df = full_df[(full_df.index >= reg_oktmo) & (full_df.index < reg_oktmo + 1000000)]
 
+		#проверка флажка об изменениях от пользователя и пересчёт таблицы (при необходимости)
+		if feature_changed:
+			changes_dict = json.loads(changes_dict)
+			print(changes_dict)
+			reg_df = change_features(oktmo, changes_dict, reg_df)
+
+		#здесь надо сформировать таблицу с данными по доп модификаторам для районов данного региона
+		#reg_df2 = get_features_from_db(territory_id)
+
+		##переводим таблицу индикаторов региона в таблицу значений "клеточек" для региона
+		#для этого загрузим таблицу коэффициентов
+		grid_coeffs = pd.read_json('app_package/src/for_val_ident/grid_coeffs.json').reindex(['dev', 'soc', 'bas'])
+		reg_tab = reg_df_to_tab(reg_df, grid_coeffs)
+
+		#нормализуем полученные значения по региону
+		reg_tab = recount_data_for_reg(reg_tab)
+
+		#получим обратно значения клеточек для нашего мун. образования
+		tab = ser_to_tab(reg_tab.loc[oktmo], grid_coeffs)
+		
+		#теперь выдаём это, как json, и всё
+		return tab.to_json()
+"""
