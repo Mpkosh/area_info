@@ -14,6 +14,7 @@ import requests
 import json
 
 terr_api = os.environ.get('TERRITORY_API')
+file_path = 'app_package/src/for_val_ident/'
 #признаки, которые не делятся на население
 non_pop_features = ['livarea', 'consnewapt', 'avgsalary', 'avgemployers', 'pollutcapturedperc', 'harvest', 'litstreetperc']
 
@@ -121,79 +122,6 @@ def recount_data_for_reg(reg_df: pd.DataFrame) -> pd.DataFrame:
 
 	return reg_df.apply(lambda s: (s - s.min()) / (s.max() - s.min()), axis = 0)
 
-
-"""
-#################################################################
-Следующие функции работают со сбором данных из базы проекта
-
-
-def get_feature_for_district_from_db(territory_id: int, feature_id: int, feature_type = ['services', 'service_type']):
-	get_res = requests.get(url = f"http://10.32.1.107:5300/api/v1/territory/{territory_id}/{feature_type[0]}?{feature_type[1]}_id={feature_id}&include_child_territories=true&cities_only=false&page=1&page_size=1").json()
-	return get_res['count']
-
-def get_csv_features_from_db(feature_id: int, feature_type = ['services', 'service_type']):
-	regions = list(map(lambda x: x['territory_id'], requests.get(url = "http://10.32.1.107:5300/api/v1/all_territories_without_geometry", params = {"parent_id": 12639}).json()))
-	feature_ser = list()
-	for reg in tqdm(regions):
-		r = requests.get(url = "http://10.32.1.107:5300/api/v1/all_territories_without_geometry", params = {"parent_id": reg}).json()
-		tmp_districts = list(map(lambda x: [x['territory_id'], x['oktmo_code']], r))
-		for i in range(len(tmp_districts)):
-			tmp_districts[i] = [tmp_districts[i][0], tmp_districts[i][1], get_feature_for_district_from_db(tmp_districts[i][0], feature_id, feature_type)]
-		feature_ser.extend(tmp_districts)
-	feature_ser = pd.DataFrame(data = feature_ser, columns = ['territory_id', 'oktmo', 'value'])
-	return feature_ser
-
-def get_features_from_db(territory_id: int):
-	p_id = requests.get(url = f"http://10.32.1.107:5300/api/v1/territory/{territory_id}").json()['parent']['id']
-	district_id_lst = requests.get(url = f"http://10.32.1.107:5300/api/v1/all_territories_without_geometry?parent_id={p_id}&get_all_levels=false&cities_only=false&ordering=asc").json()
-	district_id_lst = list(map(lambda x: [x['territory_id'], x['oktmo_code']], district_id_lst))
-	db_features = {'services': [(21, 'kindergarden'),]}
-	for i in db_features['services']:
-		feature_name = i[1]
-		feature_dict = dict()
-		for j in district_id_lst:
-			get_res = requests.get(url = f"http://10.32.1.107:5300/api/v1/territory/{j[0]}/services?service_type_id={i[0]}&include_child_territories=true&cities_only=false&page=1&page_size=1").json()
-			val = get_res['count']
-			feature_dict[j[1]] = val
-		feature_ser = pd.Series(data = feature_dict, index = feature_dict.keys(), name = feature_name)
-	
-	#we'll create a file feature_coeffs_db. And then we'll just load it. Besides we'll have a function of recalculating this file's data
-	
-	pass
-
-def refresh_coeff_table():
-	pass
-
-
-Конец функций, который работают со сбором данных из базы проекта
-#################################################################
-"""
-
-
-"""
-Пересчёт данных для подсчёта оценки в случае пользовательских изменений значений соцэкономиндикаторов
-"""
-
-def change_features(oktmo: int, changes_dict: dict, reg_df: pd.DataFrame) -> pd.DataFrame:
-	"""
-	changes_dict ожидается в следующем формате:
-	{"<Название 1ого изменённого индикатора>": <новое значение>,
-	 "<Название 2ого изменённого индикатора>": <новое значение>,
-	 ...
-	 "<Название последнего изменённого индикатора>": <новое значение>}
-	"""
-	with open('app_package/src/for_val_ident/norm_dict.json') as json_file:
-		norm_dict = json.load(json_file)
-	population = pd.read_csv('app_package/src/for_val_ident/population_light.csv', sep = ';')
-	population = population[population.oktmo == oktmo].popsize.iloc[0]
-	for indicator, value in changes_dict.items():
-		if indicator in non_pop_features:
-			norm_new_val = value / norm_dict[indicator]
-		else:
-			norm_new_val = (value * 1000) / (population * norm_dict[indicator])
-		reg_df.loc[oktmo, indicator] = norm_new_val
-	return reg_df
-
 def color_intensity(row):
 	if pd.isnull(row['distr_vals']):
 		return None
@@ -229,7 +157,7 @@ def muni_tab(territory_id: int, feature_changed = False, changes_dict = "") -> j
 	if reg_oktmo != 41000000 or True:
 
 		#загружаем общую таблицу
-		full_df = pd.read_csv('app_package/src/for_val_ident/full_df4.csv', sep = ';', index_col = 0)
+		full_df = pd.read_csv(f'{file_path}full_df4.csv', sep = ';', index_col = 0)
 
 		#получаем таблицу региона
 		reg_df = full_df[(full_df.index >= reg_oktmo) & (full_df.index < reg_oktmo + 1000000)]
@@ -245,7 +173,7 @@ def muni_tab(territory_id: int, feature_changed = False, changes_dict = "") -> j
 
 		##переводим таблицу индикаторов региона в таблицу значений "клеточек" для региона
 		#для этого загрузим таблицу коэффициентов
-		grid_coeffs = pd.read_json('app_package/src/for_val_ident/grid_coeffs.json').reindex(['dev', 'soc', 'bas'])
+		grid_coeffs = pd.read_json(f'{file_path}grid_coeffs.json').reindex(['dev', 'soc', 'bas'])
 		reg_tab = reg_df_to_tab(reg_df, grid_coeffs)
 
 		#нормализуем полученные значения по региону
@@ -272,34 +200,3 @@ def muni_tab(territory_id: int, feature_changed = False, changes_dict = "") -> j
 
 	else:
 		pass
-
-"""
-		#загружаем общую таблицу
-		full_df = pd.read_csv('app_package/src/for_val_ident/full_df4.csv', sep = ';', index_col = 0)
-
-		#получаем таблицу региона
-		reg_df = full_df[(full_df.index >= reg_oktmo) & (full_df.index < reg_oktmo + 1000000)]
-
-		#проверка флажка об изменениях от пользователя и пересчёт таблицы (при необходимости)
-		if feature_changed:
-			changes_dict = json.loads(changes_dict)
-			print(changes_dict)
-			reg_df = change_features(oktmo, changes_dict, reg_df)
-
-		#здесь надо сформировать таблицу с данными по доп модификаторам для районов данного региона
-		#reg_df2 = get_features_from_db(territory_id)
-
-		##переводим таблицу индикаторов региона в таблицу значений "клеточек" для региона
-		#для этого загрузим таблицу коэффициентов
-		grid_coeffs = pd.read_json('app_package/src/for_val_ident/grid_coeffs.json').reindex(['dev', 'soc', 'bas'])
-		reg_tab = reg_df_to_tab(reg_df, grid_coeffs)
-
-		#нормализуем полученные значения по региону
-		reg_tab = recount_data_for_reg(reg_tab)
-
-		#получим обратно значения клеточек для нашего мун. образования
-		tab = ser_to_tab(reg_tab.loc[oktmo], grid_coeffs)
-		
-		#теперь выдаём это, как json, и всё
-		return tab.to_json()
-"""
