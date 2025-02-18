@@ -122,6 +122,9 @@ def recount_data_for_reg(reg_df: pd.DataFrame) -> pd.DataFrame:
 
 	return reg_df.apply(lambda s: (s - s.min()) / (s.max() - s.min()), axis = 0)
 
+def change_features(oktmo, changes_dict, reg_df):
+	return reg_df
+
 def color_intensity(row):
 	if pd.isnull(row['distr_vals']):
 		return None
