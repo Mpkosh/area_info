@@ -157,7 +157,7 @@ def get_features_from_db(territory_id: int):
 			feature_dict[j[1]] = val
 		feature_ser = pd.Series(data = feature_dict, index = feature_dict.keys(), name = feature_name)
 	"""
-	we'll create a file feature_coeffs_db. And then we'll just load it. Besides we'll have a function of recalculating this file's data
+	#we'll create a file feature_coeffs_db. And then we'll just load it. Besides we'll have a function of recalculating this file's data
 	"""
 	pass
 
