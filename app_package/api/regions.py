@@ -411,5 +411,7 @@ def mig_forecast():
     inputdata = inputdata.astype(float)
     
     res = MigForecast.model_outcome(inputdata)
+    res = inputdata['popsize']+res
+
     return Response(res.to_json(orient="records"), 
                     mimetype='application/json')

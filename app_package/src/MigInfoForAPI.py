@@ -491,7 +491,7 @@ def mig_dest_multipolygons(result, fin_df_with_centre):
                                                  'to_territory_id':'territory_id'})
     from_to_summed = from_summed.merge(to_summed, how='outer').fillna(0)
     # добавляем geometry
-    from_to_geom = from_to_summed.merge(fin_df_with_centre[['territory_id','geometry'
+    from_to_geom = from_to_summed.merge(fin_df_with_centre[['territory_id','name','geometry'
                                                        ]], how='left')
     from_to_geom.territory_id = from_to_geom.territory_id.astype(int)
     from_to_geom.loc[1:, 'geometry'] = gpd.GeoSeries.from_wkt(from_to_geom['geometry'
@@ -509,11 +509,11 @@ def mig_dest_multipolygons(result, fin_df_with_centre):
 
     result.loc[:,'line'] = result.apply(lambda x: LineString([x['from_centroid'], 
                                          x['to_centroid']]), axis=1)
-
+    
+    
     from_to_lines = result[['from_territory_id','to_territory_id','n_people','line']]
     from_to_lines.loc[:,'from_territory_id'] = from_to_lines.from_territory_id.astype(int)
     from_to_lines.loc[:,'to_territory_id'] = from_to_lines.to_territory_id.astype(int)
-    
     return [from_to_geom, from_to_lines]
 
 
@@ -557,16 +557,17 @@ def mig_dest_prepared(show_level, fin_df, siblings,
         df_with_geom.loc[:,'geometry'] = gpd.GeoSeries.from_wkt(df_with_geom['geometry'].astype(str))
         df_with_geom.loc[:,'centroid'] = df_with_geom.geometry.apply(lambda x: x.centroid)
 
+    
     # мерджим, чтобы добавить инф-ию по id и geometry
     #  для узла "откуда"
-    result = result.merge(df_with_geom[['territory_id','geometry','centroid']], 
+    result = result.merge(df_with_geom[['territory_id','name','geometry','centroid']], 
                       left_on='from_territory_id', 
                       right_on='territory_id', how='left'
                       ).rename(columns={'geometry':'from_geometry',
                                        'centroid':'from_centroid'}
                               ).drop(columns=['territory_id'])
     #  для узла "куда"
-    result = result.merge(df_with_geom[['territory_id','geometry','centroid']], 
+    result = result.merge(df_with_geom[['territory_id','name','geometry','centroid']], 
                       left_on='to_territory_id', 
                       right_on='territory_id', how='left'
                          ).rename(columns={'geometry':'to_geometry',
@@ -596,10 +597,16 @@ def mig_dest_prepared(show_level, fin_df, siblings,
                 
     from_to_geom, from_to_lines = mig_dest_multipolygons(result, df_with_geom)
     from_to_geom = from_to_geom.drop_duplicates()
+    
+    # колонки на русском
+    from_to_geom = from_to_geom.rename(columns={'people_in':'Количество приехавших',
+                                                'people_out':'Количество уехавших',
+                                                'name':'Название территории'})
+    
     from_to_lines = from_to_lines.drop_duplicates()
     from_to_lines.loc[:,'to_territory_id'] = from_to_lines['to_territory_id'].astype(int)
     from_to_lines.loc[:,'from_territory_id'] = from_to_lines['from_territory_id'].astype(int)
-    
+    print(from_to_geom.iloc[1,:])
     return from_to_geom, from_to_lines
 
 
