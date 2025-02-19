@@ -79,6 +79,7 @@
           "Module 11"
         ],
         "summary": "Matrix of how satisfied are different values of different identity groups",
+        "description": "The output data is a dictionary with five parameters which represent five identity groups:<br> - \"comm\" - common. Some stuff that is important for each identity group.<br> - \"soc_workers\" - social identity of people who are able to work.<br> - \"soc_old\" - social identity of elderly people.<br> - \"soc_parents\" - social identity of people with children (considered to be able to work).<br> - \"loc\" - local. Some stuff that is important for people in connection with their local identity.<br><br> Each one of the beforementioned parameters has three parameters. These parameters are levels of values:<br> - \"dev\" - values of development.<br> - \"soc\" - social values.<br> - \"bas\" - basic values.<br><br> Finally for each identity group and for each values level there's an array of three numbers:<br> 0. The computed value of satisfaction of the given identity group in connection with the given values level for the given district.<br> 1. The mean value of satisfaction of the given identity group in connection with the given values level for the region of the given dictrict.<br> 2. The proposed color intensity of the cell which would represent the value given at the position 0. Positive numbers stand for green color, negative ones - for red color. The maximum intensities are 1 and -1 for green and red colors respectively. The minimum intensity is 0 - white color.",
         "parameters": [
           {
             "$ref": "#/components/parameters/territory_id"
@@ -904,16 +905,37 @@
             "type": "object",
             "properties": {
               "dev": {
-                "type": "number",
-                "example": null
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "example": [
+                  null,
+                  null,
+                  null
+                ]
               },
               "soc": {
-                "type": "number",
-                "example": 0
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "example": [
+                  0.14,
+                  0.27,
+                  -0.46
+                ]
               },
               "bas": {
-                "type": "number",
-                "example": 0
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "example": [
+                  0.04,
+                  0.52,
+                  -0.93
+                ]
               }
             }
           },
@@ -921,16 +943,37 @@
             "type": "object",
             "properties": {
               "dev": {
-                "type": "number",
-                "example": null
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "example": [
+                  null,
+                  null,
+                  null
+                ]
               },
               "soc": {
-                "type": "number",
-                "example": 0
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "example": [
+                  0.89,
+                  0.51,
+                  0.78
+                ]
               },
               "bas": {
-                "type": "number",
-                "example": 0
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "example": [
+                  0.07,
+                  0.42,
+                  -0.83
+                ]
               }
             }
           },
@@ -938,16 +981,37 @@
             "type": "object",
             "properties": {
               "dev": {
-                "type": "number",
-                "example": 0
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "example": [
+                  0.06,
+                  0.13,
+                  -0.52
+                ]
               },
               "soc": {
-                "type": "number",
-                "example": 0
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "example": [
+                  0.12,
+                  0.28,
+                  -0.55
+                ]
               },
               "bas": {
-                "type": "number",
-                "example": 0
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "example": [
+                  0.04,
+                  0.52,
+                  -0.93
+                ]
               }
             }
           },
@@ -955,16 +1019,37 @@
             "type": "object",
             "properties": {
               "dev": {
-                "type": "number",
-                "example": 0
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "example": [
+                  0,
+                  0.46,
+                  -1
+                ]
               },
               "soc": {
-                "type": "number",
-                "example": 0
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "example": [
+                  0.89,
+                  0.51,
+                  0.78
+                ]
               },
               "bas": {
-                "type": "number",
-                "example": 0
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "example": [
+                  0.41,
+                  0.2,
+                  0.26
+                ]
               }
             }
           },
@@ -972,16 +1057,37 @@
             "type": "object",
             "properties": {
               "dev": {
-                "type": "number",
-                "example": 0
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "example": [
+                  0,
+                  0.16,
+                  -1
+                ]
               },
               "soc": {
-                "type": "number",
-                "example": 0
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "example": [
+                  0,
+                  0.49,
+                  -1
+                ]
               },
               "bas": {
-                "type": "number",
-                "example": 0
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "example": [
+                  0.93,
+                  0.72,
+                  0.74
+                ]
               }
             }
           }
