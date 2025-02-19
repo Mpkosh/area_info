@@ -303,7 +303,9 @@ def pop_needs():
     return Response(df.to_json(orient="split"), 
                     mimetype='application/json')
 
+
 #____________ OFFICIAL F11
+
 
 @bp_api.route('/regions/main_info', methods=['GET'])
 @cross_origin()
@@ -321,8 +323,10 @@ def main_info():
 @cross_origin()
 def detailed_info():
     territory_id = request.args.get('territory_id', type = int, default=34)
+    forecast_until = request.args.get('forecast_until', type = int, default=2024)
+    
     pop_df, groups_df, dynamic_pop_df, \
-        soc_pyramid_df, values_df = PopInfoForAPI.detailed_pop_info(territory_id)
+        soc_pyramid_df, values_df = PopInfoForAPI.detailed_pop_info(territory_id, forecast_until)
     
     return [pop_df.to_json(), groups_df.to_json(), dynamic_pop_df.to_json(),
             soc_pyramid_df.to_json(), values_df.to_json()]
@@ -400,6 +404,33 @@ def mig_forecast():
                 'servicesnum', 'roadslen', 'livestock', 'harvest', 'agrprod', 
                 'hospitals', 'beforeschool']
     
+    input_values = []
+    for param in features:
+        param_value = request.args.get(param, type = float)
+        input_values.append(param_value)
+    
+    # обработка входных параметров
+    inputdata = pd.DataFrame.from_records([input_values], 
+                                          columns=features)
+    inputdata = inputdata.astype(float)
+    
+    res = MigForecast.model_outcome(inputdata)
+    res = inputdata['popsize']+res
+
+    return Response(res.to_json(orient="records"), 
+                    mimetype='application/json')
+
+
+@bp_api.route('/migrations/forecast_fin', methods=['GET'])
+@cross_origin()
+def mig_forecast_fin():
+    features = ['year', 'popsize', 'avgemployers', 'avgsalary', 'shoparea', 
+                'foodseats', 'retailturnover', 'livarea', 'sportsvenue', 
+                'servicesnum', 'roadslen', 'livestock', 'harvest', 'agrprod', 
+                'hospitals', 'beforeschool']
+    
+    print(list(request.args.keys()))
+    print(list(request.args.listvalues()))
     input_values = []
     for param in features:
         param_value = request.args.get(param, type = float)

@@ -393,7 +393,7 @@ def groups_3(x):
     return [pop_all, pop_younger, pop_can_work, pop_older]
 
 
-def detailed_pop_info(territory_id=34):
+def detailed_pop_info(territory_id=34, forecast_until=2030):
     session = requests.Session()
     # ____ Половозрастная структура
     pop_df = get_detailed_pop(session, territory_id, True, False)
@@ -430,9 +430,12 @@ def detailed_pop_info(territory_id=34):
     folders={'popdir':file_path+'population_data/',
              'file_name':'Ленинградская область.xlsx'}
     last_pop_year = pop_df.columns.levels[0][-1]
+    # прогноз до 2030 года включительно
+    horizon = forecast_until - last_pop_year
     forecast = DemForecast.MakeForecast(pop_df, last_pop_year, 
-                                        1, folders)
-    dynamic_pop = pd.concat([pop_df,forecast.loc[:, (2024, slice(None))]], axis=1)
+                                        horizon, folders)
+    # отрезаем от прогноза первый год (== поданному на вход последнему году)
+    dynamic_pop = pd.concat([pop_df, forecast.iloc[:, 2:]], axis=1) #pd.concat([pop_df,forecast.loc[:, (2024, slice(None))]], axis=1)
     dynamic_pop_df = pd.DataFrame([dynamic_pop.T.groupby(level=[0]).sum().sum(1)])
 
     # ____ Половозрастная структура соц.групп (то же, что и пункт 1?)
