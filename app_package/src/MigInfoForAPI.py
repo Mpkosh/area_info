@@ -70,7 +70,7 @@ def info_for_graph(territory_id, show_level=0, md_year=2022):
 
 def info(territory_id, show_level=0, detailed=False, 
          with_mig_dest=False, fill_in_4=False, md_year=2022, 
-         change_lo_level=True, from_file=False):
+         change_lo_level=True, from_file=True):
     
     session = requests.Session()
     current_territory = Territory(territory_id)
@@ -98,9 +98,10 @@ def info(territory_id, show_level=0, detailed=False,
         
         # добавляем направления миграции
         if with_mig_dest:
-            
+            # для detailed_info ставится show_level=0
             # для уровня областей быстрее из файла (surpise-surprise)
-            if from_file & (show_level == 1):
+            if from_file & (show_level <= 1):
+                
                 from_to_geom, from_to_lines = mig_dest_prepared(show_level=show_level, 
                                                                 fin_df=fin, siblings=[], 
                                                                 change_lo_level=change_lo_level, 
@@ -526,16 +527,25 @@ def mig_dest_multipolygons(result, fin_df_with_centre):
 def mig_dest_prepared(show_level, fin_df, siblings, 
                       change_lo_level=False, md_year=2022, from_file=False):
     
-
-    if show_level == 1:
+    
+    print(from_file)
+    if show_level <= 1:
         if from_file:
             siblings = pd.read_csv(file_path+'bd_id_geom_regions.csv', index_col=0)
+            
         
         df_with_geom = siblings.copy()
         res_years = pd.read_csv(file_path+'obl_mig_no_tid_19-23.csv', 
                                 index_col=0)
         yeartab = siblings.drop(columns=['oktmo']
                                ).merge(res_years, on='name')
+        print(siblings.name.nunique(), res_years.name.nunique(), yeartab.shape)
+        # при ЛО где-то дублируется
+        if 'territory_id_x' in yeartab.columns:
+           yeartab = yeartab.rename(columns={'territory_id_x':'territory_id'}
+                                    ).drop(columns=['territory_id_y'])
+        
+        
         result = graph_lo_2level(yeartab, md_year)
         
     else:
