@@ -156,7 +156,11 @@ def info(territory_id, show_level=0, detailed=False,
             terr_classes = [child for one_class in terr_classes for child in one_class.children]
             # новые id тер-рий
             terr_ids = [one_class.territory_id for one_class in terr_classes]
-
+        
+        '''
+        '''
+        
+        
         # all final children in <terr_classes>    
         fin_df = pd.DataFrame([])
         fin_df['territory_id'] = [cl.territory_id for cl in terr_classes]
@@ -294,7 +298,8 @@ def main_info(session, current_territory, show_level):
         
         ter_type = r_main['territory_type']['id']
         # город федерального значения приравниваем к области
-        if ter_type==17:
+        # у СПб тип 18?
+        if (ter_type==17) or (ter_type==18):
             ter_type=1
             
         current_territory.territory_type = ter_type
@@ -378,7 +383,8 @@ def child_to_class_onetry(x, parent_class):
 def get_children_one_try(session, parent_class):
     try:
         url = terr_api + 'api/v2/territories'
-        params = {'parent_id':parent_class.territory_id,'get_all_levels':'true','cities_only':'true','page_size':10000}
+        params = {'parent_id':parent_class.territory_id,'get_all_levels':'true',
+                  'cities_only':'true','page_size':10000}
         r_u = session.get(url, params=params)
         r = r_u.json()
         
@@ -520,12 +526,13 @@ def mig_dest_multipolygons(result, fin_df_with_centre):
 def mig_dest_prepared(show_level, fin_df, siblings, 
                       change_lo_level=False, md_year=2022, from_file=False):
     
+
     if show_level == 1:
         if from_file:
             siblings = pd.read_csv(file_path+'bd_id_geom_regions.csv', index_col=0)
         
         df_with_geom = siblings.copy()
-        res_years = pd.read_csv(file_path+'obl_mig_no_tid_20-23.csv', 
+        res_years = pd.read_csv(file_path+'obl_mig_no_tid_19-23.csv', 
                                 index_col=0)
         yeartab = siblings.drop(columns=['oktmo']
                                ).merge(res_years, on='name')
@@ -535,8 +542,10 @@ def mig_dest_prepared(show_level, fin_df, siblings,
         df_with_geom = pd.read_csv(file_path+'lo_3_parents.csv', 
                                    index_col=0)
         if show_level > 2:
-            result = pd.read_csv(file_path+f'graph_LO_{show_level}level_{md_year}.csv',
-                                 index_col=0)
+            # result = pd.read_csv(file_path+f'graph_LO_{show_level}level_{md_year}.csv',index_col=0)
+            res = pd.read_csv(file_path + 'graph_LO_3level_19-22.csv', index_col=0)
+            result = res[res.year==md_year].drop(columns=['year']) # для /main_info/ всегда посл.год
+
         else:
             pre_result = pd.read_csv(file_path+'for_graph_LO_2level.csv',
                                      index_col=0)
@@ -606,7 +615,7 @@ def mig_dest_prepared(show_level, fin_df, siblings,
     from_to_lines = from_to_lines.drop_duplicates()
     from_to_lines.loc[:,'to_territory_id'] = from_to_lines['to_territory_id'].astype(int)
     from_to_lines.loc[:,'from_territory_id'] = from_to_lines['from_territory_id'].astype(int)
-    print(from_to_geom.iloc[1,:])
+
     return from_to_geom, from_to_lines
 
 
