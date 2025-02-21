@@ -81,8 +81,8 @@ def info(territory_id, show_level=0, detailed=False,
         if (show_level == 4):
             raise NotImplementedError('Migration destinations for show_level=4 are not available yet')
     
-        if (show_level == 1) & (md_year not in [2020,2021,2022,2023]):
-             raise NotImplementedError('Migration destinations for show_level=1 are available for years 2020-2023; given {md_year}')
+        if (show_level == 1) & (md_year not in [2019,2020,2021,2022,2023]):
+             raise NotImplementedError('Migration destinations for show_level=1 are available for years 2019-2023; given {md_year}')
              
         if md_year not in [2019,2020,2021,2022]:
             raise ValueError(f'Migration destinations for show_level>1 are available for years 2019-2022, given {md_year}')
@@ -142,6 +142,8 @@ def info(territory_id, show_level=0, detailed=False,
         fin_df = detailed_factors(session, current_territory, fin_df)
         #fin_df['Численность населения'] = [current_territory.pop_all]
       
+        
+    # for main_info    
     else:
         if show_level < current_territory.territory_type:
             raise ValueError(f'Show level must be >= territory type; given show_level={show_level} and territory_type={current_territory.territory_type}')
@@ -626,6 +628,10 @@ def mig_dest_prepared(show_level, fin_df, siblings,
     from_to_lines.loc[:,'to_territory_id'] = from_to_lines['to_territory_id'].astype(int)
     from_to_lines.loc[:,'from_territory_id'] = from_to_lines['from_territory_id'].astype(int)
 
+    from_to_geom = from_to_geom.rename(columns={'n_people':'Количество уехавших',
+                                                'people_out':'Количество уехавших',
+                                                'name':'Название территории'})
+    
     return from_to_geom, from_to_lines
 
 

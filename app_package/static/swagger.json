@@ -11,10 +11,6 @@
       "description": "main server"
     },
     {
-      "url": "https://area-info.onrender.com/api/",
-      "description": "just in case"
-    },
-    {
       "url": "http://127.0.0.1:5000/api/",
       "description": "local"
     }
@@ -25,7 +21,8 @@
         "tags": [
           "Module 11"
         ],
-        "summary": "Territory information (recent year): geometry, population, density",
+        "summary": "Territory information (recent year)",
+        "description": "## Get information of the territory and its subtree: geometry, population, density.\n**NOTE:** Given territory should have a territory type 1, 2 or 3.\n\n**Parameters**:\n* **territory_id** (int, Query): Unique identifier of the territory.\n* **show_level** (int, Query): Which territory types to show. **Note:** less or equal to the given territory's type.\n\n**Returns**: \n* **GeoJSONResponse[Feature[FeatureGeometry]]**: \n  * geometry: territory coordinates.\n  * properties: territory id, territory name, population density, population, young population, able-bodied population, old population, death coefficient, birth coefficient, migration coefficient.",
         "parameters": [
           {
             "$ref": "#/components/parameters/territory_id"
@@ -40,7 +37,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/main_info_200"
+                  "$ref": "#/components/schemas/FeatureCollection"
                 }
               }
             }
@@ -54,9 +51,13 @@
           "Module 11"
         ],
         "summary": "Territory detailed information (all years)",
+        "description": "## Get detailed information of the territory: age-sex pyramids, population.\n**NOTE:** Given territory should have a territory type 1 or 2.\n\n**Parameters**:\n* **territory_id** (int, Query): Unique identifier of the territory.\n* **forecast_until** (int, Query): final year of forecast.\n\n**Returns**: \n* **Array [JSONResponse]**: \n  * age-sex pyramid.\n  * population of 3 work groups (0-15, 16-60, 61-100) and 9 social groups (0-5, 6-10, 11-14, 15-17, 18-29, 30-39, 40-59, 60-74, 75-100).\n  * population from 2019 to 2023 and forecast (pyramid shift).\n  * age-sex pyramid of 9 social groups.\n  * population values. **Note**: outputs zeroes; use regions/values_identities/",
         "parameters": [
           {
             "$ref": "#/components/parameters/territory_id"
+          },
+          {
+            "$ref": "#/components/parameters/forecast_until"
           }
         ],
         "responses": {
@@ -111,7 +112,7 @@
           "Module 21"
         ],
         "summary": "Migration information (recent year): num in/out, factors",
-        "description": "Inflow of <young / able to work / old> migrants; <br>  Outflow of <young / able to work / old> migrants; <br> Migration factors: avgemployers, avgsalary, ... <br> if mig_destinations=True => + geojson with polygons, geojson with lines",
+        "description": "\n## Get Migration information of the territory and its subtree.\n**NOTE 1:** Given territory should have a territory type 1, 2 or 3.\n\n**NOTE 2:** Migration destinations are available for years 2019-2022 and show_level<4 (2019-2023 for territory type 1).\n\n**Parameters**:\n* **territory_id** (int, Query): Unique identifier of the territory.\n* **show_level** (int, Query): Which territory types to show. **Note:** less or equal to the given territory's type.\n* **mig_destinations** (bool, Query): Include migration destinations info.\n* **change_lo_level** (bool, Query): Group auxiliary areas one level higher.\n* **from_file** (bool, Query): Use prepared geometries. **Note**: for show_level=1.\n\n**Returns**: \n* **GeoJSONResponse[Feature[FeatureGeometry]]**: \n  * geometry: territory coordinates.\n  * properties: territory id, territory name, centre point, incoming migrants, outcoming migrants, population, 27 migration factors.\n\n* if mig_destinations; **GeoJSONResponse[Feature[FeatureGeometry]]**:\n  * geometry: territory coordinates.\n  * properties: territory id, total incoming migrants, total outgoing migrants, territory name.\n\n* if mig_destinations; **GeoJSONResponse[Feature[FeatureGeometry]]**:\n  * geometry: line between centre points.\n  * properties: from territory id, to territory id, number of migrants.",
         "parameters": [
           {
             "$ref": "#/components/parameters/territory_id"
@@ -124,6 +125,9 @@
           },
           {
             "$ref": "#/components/parameters/change_lo_level"
+          },
+          {
+            "$ref": "#/components/parameters/from_file"
           }
         ],
         "responses": {
@@ -132,7 +136,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/mig_main_info_200"
+                  "$ref": "#/components/schemas/FeatureCollection_m21_1"
                 }
               }
             }
@@ -146,7 +150,7 @@
           "Module 21"
         ],
         "summary": "Migration detailed information (all years): num in/out, types, factors",
-        "description": "Inflow of <across russia / outside region / inside region /  international / interregional / all / other countries / CIS counries> migrants; <br>  Outflow of the same migrants; <br> Migration factors: avgemployers, avgsalary, ... <br><br> // В пределах России, Внешняя (для региона) миграция, Внутрирегиональная,  Международная, Межрегиональная, Миграция всего,  С другими зарубежными странами, Со странами СНГ<br>if mig_destinations=True => + geojson with polygons, geojson with lines",
+        "description": "## Get detailed migration information of the territory.\n**NOTE 1:** Given territory should have a territory type 1, 2 or 3.\n\n**NOTE 2:** Migration destinations are available for years 2019-2022 (2019-2023 for territory type 1).\n\n**Parameters**:\n* **territory_id** (int, Query): Unique identifier of the territory.\n* **mig_destinations** (bool, Query): Include migration destinations info.\n* **change_lo_level** (bool, Query): Group auxiliary areas one level higher.\n* **given_year** (int, Query): Show migration destinations for a given year.\n* **from_file** (bool, Query): Use prepared geometries. **Note**: for show_level=1.\n\n**Returns**: \n* **Array[JSONResponse]**: \n  * year, inflow/outflow of migrants from 8 destinations (across russia, outside region, inside region, international, interregional, total, other countries, CIS counries), population, 27 migration factors.\n\n* if mig_destinations; **GeoJSONResponse[Feature[FeatureGeometry]]**:\n  * geometry: territory coordinates.\n  * properties: territory id, total incoming migrants, total outgoing migrants, territory name.\n\n* if mig_destinations; **GeoJSONResponse[Feature[FeatureGeometry]]**:\n  * geometry: line between centre points.\n  * properties: from territory id, to territory id, number of migrants.",
         "parameters": [
           {
             "$ref": "#/components/parameters/territory_id"
@@ -159,6 +163,9 @@
           },
           {
             "$ref": "#/components/parameters/given_year"
+          },
+          {
+            "$ref": "#/components/parameters/from_file"
           }
         ],
         "responses": {
@@ -181,7 +188,7 @@
           "Module 21"
         ],
         "summary": "Migration forecast (saldo) based on 16 features",
-        "description": "Output -- saldo <br> Input -- 16 features: year, popsize, avgemployers, avgsalary, shoparea,foodseats, retailturnover, livarea, sportsvenue, servicesnum, roadslen, livestock, harvest, agrprod, hospitals, beforeschool",
+        "description": "## Get forecasted population (current population + forecasted migration saldo) of the territory.\n\n**Parameters**:\n* **year** (int, Query): Год для учета инфляции.\n* **popsize** (int, Query): Население (чел.).\n* **avgemployers** (int, Query): Среднее число работников организаций (чел.)\n* **avgsalary** (float, Query): Средняя зарплата (руб.)\n* **shoparea** (int, Query): Площадь торговых залов магазинов (кв. м.)\n* **foodseats** (int, Query): Количество мест в ресторанах кафе барах (место)\n* **retailturnover** (float, Query): Оборот розничной торговли без малых предприятий (тыс. руб.)\n* **livarea** (float, Query): Жилая площадь на одного человека (кв. м.)\n* **sportsvenue** (int, Query): Число спортивных сооружений (шт.)\n* **servicesnum** (int, Query): Объекты бытового обслуживания (шт.)\n* **roadslen** (float, Query): Длина дорог (км)\n* **livestock** (int, Query): Поголовье скота всех видов (шт.)\n* **harvest** (int, Query): Урожайность овощей (цент.)\n* **agrprod** (float, Query): Продукция сельского хозяйства (тыс. руб.)\n* **hospitals** (int, Query): Лечебно-профилактические организации (шт.)\n* **beforeschool** (float, Query): Число мест в дошкольных обр. учреждениях (шт.)\n\n**Returns**: \n* **Array [int]**: \n  * forecasted population",
         "parameters": [
           {
             "$ref": "#/components/parameters/year"
@@ -435,6 +442,16 @@
           "type": "integer"
         }
       },
+      "forecast_until": {
+        "name": "forecast_until",
+        "default": 2024,
+        "in": "query",
+        "description": "Last year of forecast.",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      },
       "last_only": {
         "name": "last_only",
         "in": "query",
@@ -467,7 +484,7 @@
       },
       "given_year": {
         "name": "given_year",
-        "default": 2020,
+        "default": 2022,
         "in": "query",
         "description": "Data for a given year",
         "required": true,
@@ -490,6 +507,16 @@
         "default": false,
         "in": "query",
         "description": "Include migration destinations info.",
+        "required": false,
+        "schema": {
+          "type": "boolean"
+        }
+      },
+      "from_file": {
+        "name": "from_file",
+        "default": true,
+        "in": "query",
+        "description": "Use prepared geometries; for show_level=1.",
         "required": false,
         "schema": {
           "type": "boolean"
@@ -683,6 +710,14 @@
         "required": true,
         "schema": {
           "type": "number"
+        }
+      },
+      "name": {
+        "name": "name",
+        "default": "Всеволожский муниципальный район",
+        "in": "query",
+        "schema": {
+          "type": "string"
         }
       }
     },
@@ -1190,47 +1225,47 @@
         "items": {
           "type": "object",
           "properties": {
-            "year": {
+            "Год": {
               "type": "number",
               "example": 2019
             },
-            "russia_in": {
+            "Входящая. В пределах России": {
               "type": "number",
               "example": 58967
             },
-            "outside_region_in": {
+            "Входящая. Внешняя (для региона) миграция": {
               "type": "number",
               "example": 56890
             },
-            "inside_region_in": {
+            "Входящая. Внутрирегиональная": {
               "type": "number",
               "example": 6466
             },
-            "international_in": {
+            "Входящая. Международная": {
               "type": "number",
               "example": 4389
             },
-            "interregional_in": {
+            "Входящая. Межрегиональная": {
               "type": "number",
               "example": 52501
             },
-            "all_mig_in": {
+            "Входящая. Миграция всего": {
               "type": "number",
               "example": 63356
             },
-            "other_countries_in": {
+            "Входящая. С другими зарубежными странами": {
               "type": "number",
               "example": 239
             },
-            "cis_counries_in": {
+            "Входящая. Со странами СНГ": {
               "type": "number",
               "example": 4150
             },
-            "russia_out": {
+            "Исходящая. В пределах России": {
               "type": "number",
               "example": 21423
             },
-            "other": {
+            "...": {
               "type": "string",
               "example": "..."
             }
@@ -1242,7 +1277,7 @@
         "type": "array",
         "items": {
           "type": "integer",
-          "example": -92
+          "example": 14947
         }
       },
       "area_needs_json_200": {
@@ -1386,6 +1421,238 @@
           "5-9",
           "10-14"
         ]
+      },
+      "Point3D": {
+        "type": "array",
+        "description": "Point in 3D space",
+        "minItems": 2,
+        "maxItems": 3,
+        "items": {
+          "type": "number"
+        }
+      },
+      "MultiPolygon": {
+        "type": "object",
+        "description": "GeoJSon geometry",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Point3D"
+          }
+        ]
+      },
+      "GeometryCollection": {
+        "type": "object",
+        "description": "GeoJSon geometry collection",
+        "required": [
+          "type",
+          "coordinates"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "MultiPolygon"
+            ]
+          },
+          "coordinates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MultiPolygon"
+            }
+          }
+        }
+      },
+      "Feature": {
+        "type": "object",
+        "description": "GeoJSon Feature",
+        "required": [
+          "id",
+          "type",
+          "geometry"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "0"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "Feature"
+            ]
+          },
+          "properties": {
+            "$ref": "#/components/schemas/main_info_props"
+          },
+          "geometry": {
+            "$ref": "#/components/schemas/GeometryCollection"
+          }
+        }
+      },
+      "main_info_props": {
+        "type": "object",
+        "properties": {
+          "territory_id": {
+            "$ref": "#/components/parameters/territory_id"
+          },
+          "name": {
+            "$ref": "#/components/parameters/name"
+          },
+          "density": {
+            "type": "number",
+            "example": 182.69
+          },
+          "pop_all": {
+            "type": "number",
+            "example": 538947
+          },
+          "pop_younger": {
+            "type": "number",
+            "example": 80786
+          },
+          "pop_can_work": {
+            "type": "number",
+            "example": 381608
+          },
+          "pop_older": {
+            "type": "number",
+            "example": 76553
+          },
+          "coeff_death": {
+            "type": "number",
+            "example": 0.01
+          },
+          "coeff_birth": {
+            "type": "number",
+            "example": 0.871
+          },
+          "coeff_migrations": {
+            "type": "number",
+            "example": 0.2
+          }
+        }
+      },
+      "FeatureCollection": {
+        "type": "object",
+        "description": "GeoJSon Feature collection",
+        "required": [
+          "type",
+          "features"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "FeatureCollection"
+            ]
+          },
+          "features": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Feature"
+            }
+          }
+        }
+      },
+      "FeatureCollection_m21_1": {
+        "type": "object",
+        "description": "GeoJSon Feature collection",
+        "required": [
+          "type",
+          "features"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "FeatureCollection"
+            ]
+          },
+          "features": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Feature_m21_1"
+            }
+          }
+        }
+      },
+      "Feature_m21_1": {
+        "type": "object",
+        "description": "GeoJSon Feature",
+        "required": [
+          "id",
+          "type",
+          "geometry"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "0"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "Feature"
+            ]
+          },
+          "properties": {
+            "$ref": "#/components/schemas/m21_1_props"
+          },
+          "geometry": {
+            "$ref": "#/components/schemas/GeometryCollection"
+          }
+        }
+      },
+      "m21_1_props": {
+        "type": "object",
+        "properties": {
+          "territory_id": {
+            "$ref": "#/components/parameters/territory_id"
+          },
+          "name": {
+            "$ref": "#/components/parameters/name"
+          },
+          "centre_point": {
+            "type": "string",
+            "example": "POINT (30.785600111672508 60.28513911741479)"
+          },
+          "Входящая. Моложе трудоспособного возраста": {
+            "type": "number",
+            "example": 13974
+          },
+          "Входящая. Трудоспособного возраста": {
+            "type": "number",
+            "example": 36966
+          },
+          "Входящая. Старше трудоспособного возраста": {
+            "type": "number",
+            "example": 4891
+          },
+          "Исходящая. Моложе трудоспособного возраста": {
+            "type": "number",
+            "example": 6588
+          },
+          "Исходящая. Трудоспособного возраста": {
+            "type": "number",
+            "example": 18678
+          },
+          "Исходящая. Старше трудоспособного возраста": {
+            "type": "number",
+            "example": 2229
+          },
+          "Численность населения (чел.)": {
+            "type": "number",
+            "example": 506289
+          },
+          "Среднее число работников организаций (чел.)": {
+            "type": "number",
+            "example": 70096
+          },
+          "...": {
+            "type": "string",
+            "example": "..."
+          }
+        }
       }
     }
   }
