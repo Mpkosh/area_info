@@ -75,7 +75,7 @@ def create_point(x):
     return Point(x['coordinates']) 
 
         
-def info(territory_id=34, show_level=3):
+def info(territory_id=34, show_level=3, specific_year=2022):
     '''
     Основные характеристики населения:
 
@@ -138,7 +138,7 @@ def info(territory_id=34, show_level=3):
             change = False
             #print(child.territory_id, child.name, pop_for_children.loc[child.territory_id])
     
-    pyramid_info(session, terr_classes)
+    pyramid_info(session, terr_classes, specific_year)
     if change:
         fin_df['pop_all'] = [cl.pop_all for cl in terr_classes]
         
@@ -184,7 +184,7 @@ def main_info(session, current_territory, show_level):
         last_pop_and_dnst(session, current_territory, dnst=True, both=True)
         
 
-def pyramid_info(session, terr_classes):
+def pyramid_info(session, terr_classes, specific_year):
     for child in terr_classes:
         chosen_class = child
         # если у ребенка не может быть пирамиды, то постепенно проверяем его родителя
@@ -200,7 +200,8 @@ def pyramid_info(session, terr_classes):
             ter_id_for_pyramid = 34
             
         #print(f'pyramid from {chosen_class.name}')        
-        pop_df = get_detailed_pop(session, ter_id_for_pyramid, False)
+        pop_df = get_detailed_pop(session=session, territory_id=ter_id_for_pyramid, 
+                                  unpack_after_70=False, specific_year=specific_year)
         
         if pop_df.shape[0]:
             p_all, p_y, p_w, p_o = groups_3(pop_df)
@@ -366,12 +367,14 @@ def last_pop_and_dnst(session, current_territory, dnst=False, both=False):
         current_territory.pop_all = pop_value
         
         
-def get_detailed_pop(session, territory_id, unpack_after_70, last_year=True):
+def get_detailed_pop(session, territory_id, unpack_after_70, last_year=True, specific_year=0):
     url = social_api + f'indicators/2/{territory_id}/detailed'
     r = session.get(url)
     if r.status_code == 200:
         df_from_json = pd.DataFrame(r.json())
-        if last_year:
+        if specific_year>2018:
+            given_years = [specific_year]
+        elif last_year:
             given_years = [df_from_json['year'].max()]
         else:
             given_years = df_from_json.year.sort_values().values

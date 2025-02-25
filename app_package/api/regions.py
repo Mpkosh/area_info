@@ -312,9 +312,10 @@ def pop_needs():
 def main_info():
     territory_id = request.args.get('territory_id', type = int, default=34)
     show_level = request.args.get('show_level', type = int, default=2)
+    specific_year = request.args.get('year_agesex', type = int, default=2022)
     
     result = PopInfoForAPI.info(territory_id=territory_id, 
-                                         show_level=show_level)
+                                         show_level=show_level, specific_year=specific_year)
     
     return Response(result.set_geometry('geometry').to_json(), 
                     mimetype='application/json')
