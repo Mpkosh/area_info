@@ -18,7 +18,7 @@ file_path = 'app_package/src/for_val_ident/'
 #признаки, которые не делятся на население
 non_pop_features = ['livarea', 'consnewapt', 'avgsalary', 'avgemployers', 'pollutcapturedperc', 'harvest', 'litstreetperc']
 
-def get_oktmo(territory_id: int) -> int:
+def get_oktmo_level(territory_id: int) -> int:
 	"""
 	Получает код ОКТМО для заданной по territory_id территории
 
@@ -29,7 +29,24 @@ def get_oktmo(territory_id: int) -> int:
 
 	URL = terr_api + f"/api/v1/territory/{territory_id}"
 	r = requests.get(url = URL)
-	return int(r.json()['oktmo_code'])
+	data = r.json()
+	level = data['territory_type']['id']
+	if level == 2:
+		oktmo = int(data['oktmo_code'])
+	elif level == 3:
+		parent_id = data['parent']['id']
+		URL2 = terr_api + f"/api/v1/territory/{parent_id}"
+		parent_r = requests.get(url = URL2)
+		region_id = parent_r.json()['parent']['id']
+		oktmo_terrid = pd.read_csv(f'{file_path}oktmo_terrid_{region_id}_{level}.csv', sep = ';', index_col = False, encoding = 'utf-16')
+		oktmo = int(oktmo_terrid[oktmo_terrid.territory_id == territory_id].oktmo.iloc[0])
+		return region_id, oktmo, level
+	else:
+		if territory_id == 1:
+			oktmo = 41000000
+		else:
+			oktmo = 0
+	return None, oktmo, level
 
 def loc_counts(loc_data: pd.Series, grid_coeffs: pd.DataFrame) -> pd.DataFrame:
 	
@@ -134,14 +151,15 @@ def color_intensity(row):
 		return -1 * (row['reg_means'] - row['distr_vals']) / (row['reg_means'] - row['reg_mins'])
 
 #Final function
-def muni_tab(territory_id: int, feature_changed = False, changes_dict = "") -> json:
+def muni_tab(territory_id: int, level = 3, feature_changed = False, changes_dict = "") -> json:
 	"""
 	Составляет таблицу показателей удовлетворённости жителей определённой локации по различным уровням ценностей, связанных с различными идентичностями
 	для заданного района
 
 	Возвращает json с таблицей
 
-	:param int territory_id: id территории (района), по которому будет строиться таблица
+	:param int territory_id: id территории, по которому будет строиться таблица
+	:param int level: id уровня территории, для которой будет строиться таблица
 	:param bool feature_changed: флажок, указывающий на то, изменил ли пользователь значения каких-то факторов
 	:param dict changes_dict: словарь изменений в показатели, внесённых пользователем. На данный момент ожидается следующий формат:
 	{"<Название 1ого изменённого индикатора>": <новое значение>,
@@ -153,11 +171,11 @@ def muni_tab(territory_id: int, feature_changed = False, changes_dict = "") -> j
 	#34 - это Всеволожский район
 
 	#получаем oktmo данного муниципального образования
-	oktmo = get_oktmo(territory_id)
+	region_id, oktmo, level = get_oktmo_level(territory_id)
 	#получаем oktmo региона, в котором данное мун. образование находится
 	reg_oktmo = oktmo - (oktmo % 1000000)
 
-	if reg_oktmo != 41000000 or True:
+	if reg_oktmo != 41000000:
 
 		#загружаем общую таблицу
 		full_df = pd.read_csv(f'{file_path}full_df4.csv', sep = ';', index_col = 0)
@@ -202,4 +220,89 @@ def muni_tab(territory_id: int, feature_changed = False, changes_dict = "") -> j
 		return tab.to_json()
 
 	else:
-		pass
+		#ВОТ ТУТ ПРОВЕРКА УРОВНЯ И В ЗАВИСИМОСТИ ОТ ЭТОГО ПО-РАЗНОМУ СТРОИТСЯ ТАБЛИЦА
+
+		if level == 2:
+
+			#загружаем общую таблицу
+			full_df = pd.read_csv(f'{file_path}full_df4.csv', sep = ';', index_col = 0)
+
+			#получаем таблицу региона
+			reg_df = full_df[(full_df.index >= reg_oktmo) & (full_df.index < reg_oktmo + 1000000)]
+
+			#проверка флажка об изменениях от пользователя и пересчёт таблицы (при необходимости)
+			if feature_changed:
+				changes_dict = json.loads(changes_dict)
+				print(changes_dict)
+				reg_df = change_features(oktmo, changes_dict, reg_df)
+
+			#здесь надо сформировать таблицу с данными по доп модификаторам для районов данного региона
+			#reg_df2 = get_features_from_db(territory_id)
+
+			##переводим таблицу индикаторов региона в таблицу значений "клеточек" для региона
+			#для этого загрузим таблицу коэффициентов
+			grid_coeffs = pd.read_json(f'{file_path}grid_coeffs.json').reindex(['dev', 'soc', 'bas'])
+			reg_tab = reg_df_to_tab(reg_df, grid_coeffs)
+
+			#нормализуем полученные значения по региону
+			reg_tab = recount_data_for_reg(reg_tab)
+
+			#вычислим средние, максимальные и минимальные показатели по региону после нормализации
+			reg_means = reg_tab.mean()
+			reg_maxs = reg_tab.max()
+			reg_mins = reg_tab.min()
+
+			#Переведём вычисленные по клеточкам значения в массивы из самого значения для данного района, среднего значения по региону и интенсивности цвета
+			#(положительная интенсивность - для зелёного цвета; отрицательная - для красного)
+			distr_ser = reg_tab.loc[oktmo]
+			distr_ser = pd.DataFrame({'distr_vals': distr_ser, 'reg_means': reg_means, 'reg_maxs': reg_maxs, 'reg_mins': reg_mins})
+			distr_ser['color'] = distr_ser.apply(color_intensity, axis = 1)
+
+			distr_ser['finals'] = distr_ser.apply(lambda x: [x['distr_vals'], x['reg_means'], x['color']], axis = 1)
+
+			#получим обратно значения клеточек для нашего мун. образования
+			tab = ser_to_tab(distr_ser['finals'], grid_coeffs)
+			
+			#теперь выдаём это, как json, и всё
+			return tab.to_json()
+		elif level == 3:
+			#загружаем таблицу поселений региона
+			reg_df = pd.read_csv(f'{file_path}{region_id}_{level}.csv', sep = ';', index_col = 0)
+
+			#проверка флажка об изменениях от пользователя и пересчёт таблицы (при необходимости)
+			if feature_changed:
+				changes_dict = json.loads(changes_dict)
+				print(changes_dict)
+				reg_df = change_features(oktmo, changes_dict, reg_df)
+
+			#здесь надо сформировать таблицу с данными по доп модификаторам для районов данного региона
+			#reg_df2 = get_features_from_db(territory_id)
+
+			##переводим таблицу индикаторов региона в таблицу значений "клеточек" для региона
+			#для этого загрузим таблицу коэффициентов
+			grid_coeffs = pd.read_json(f'{file_path}grid_coeffs.json').reindex(['dev', 'soc', 'bas'])
+			reg_tab = reg_df_to_tab(reg_df, grid_coeffs)
+
+			#нормализуем полученные значения по региону
+			reg_tab = recount_data_for_reg(reg_tab)
+
+			#вычислим средние, максимальные и минимальные показатели по региону после нормализации
+			reg_means = reg_tab.mean()
+			reg_maxs = reg_tab.max()
+			reg_mins = reg_tab.min()
+
+			#Переведём вычисленные по клеточкам значения в массивы из самого значения для данного района, среднего значения по региону и интенсивности цвета
+			#(положительная интенсивность - для зелёного цвета; отрицательная - для красного)
+			distr_ser = reg_tab.loc[oktmo]
+			distr_ser = pd.DataFrame({'distr_vals': distr_ser, 'reg_means': reg_means, 'reg_maxs': reg_maxs, 'reg_mins': reg_mins})
+			distr_ser['color'] = distr_ser.apply(color_intensity, axis = 1)
+
+			distr_ser['finals'] = distr_ser.apply(lambda x: [x['distr_vals'], x['reg_means'], x['color']], axis = 1)
+
+			#получим обратно значения клеточек для нашего мун. образования
+			tab = ser_to_tab(distr_ser['finals'], grid_coeffs)
+			
+			#теперь выдаём это, как json, и всё
+			return tab.to_json()
+		else:
+			raise ValueError(f'Localities of this level (given: {level}) are not supported in this request')
