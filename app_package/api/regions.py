@@ -207,30 +207,20 @@ def area_needs():
     territory_id = request.args.get('territory_id', type = int, default=34)
     given_year = request.args.get('given_year', type = int, default=2020)
     
-    try:
-        url = social_api + f'indicators/2/{territory_id}/detailed'
-        r = requests.get(url, params={'year':given_year})
-        all_popul = r.json()
-        df = pd.DataFrame(all_popul[0]['data'])
-    except:
-        raise requests.exceptions.RequestException(f'Problem with {r.url}')
+    session = requests.Session()
+    df = PopInfoForAPI.get_detailed_pop(session, territory_id, 
+                                        unpack_after_70=True, last_year=False, 
+                                        specific_year=0)
+    last_pop_year = df.columns.levels[0][-1]
+    # если нужен год больше текущего -- делаем прогноз
+    if given_year > last_pop_year:
+        folders={'popdir':file_dir,
+             'file_name':'Ленинградская область.xlsx'}
+        df = DemForecast.MakeForecast(df, last_pop_year, 
+                                            given_year - last_pop_year, folders)
         
-    df['группа'] = df.iloc[:,:2].apply(func, 1)
-    df = df.set_index('группа').iloc[:,2:]
-
-    # ставим года
-    df.columns = pd.MultiIndex.from_product([[given_year], ['Мужчины', 'Женщины']])
-    df.columns.set_names(['', "пол"], level=[0,1], inplace=True)
-    df.bfill(inplace=True)
+    # интервал возрастов == 1
     
-    df = PreproDF.add_ages_70_to_100(df)
-    df.index = df.index.astype(str)
-    # уберем возрастные интервалы
-    df = df[df.index.isin([str(i) for i in range(0,101)])]
-    
-    df.index = df.index.astype(int)
-    df.sort_index(inplace=True)
-
     # потребности
     df_needs = pd.read_csv(file_dir+'pop_needs.csv', index_col=0)
     needs = df_needs.columns[1:]
