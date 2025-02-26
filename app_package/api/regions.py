@@ -11,7 +11,7 @@ from app_package.api import bp as bp_api
 from app_package.src import PreproDF, PopulationInfo, \
                             AreaOnMapFile, DensityInfo, \
                             PopInfoForAPI, MigInfoForAPI, \
-                            ValIdentityMatrix, MigForecast
+                            ValIdentityMatrix, MigForecast, DemForecast
 
 import pandas as pd
 import geopandas as gpd
@@ -64,46 +64,26 @@ def pyramid_data():
     territory_id = request.args.get('territory_id', type = int, default=34)
     n_age_groups = request.args.get('n_age_groups', type = int, default=5)
     
-    try:
-        url = social_api + f'indicators/2/{territory_id}/detailed'
-        r = requests.get(url, params={'year':given_year})
-        all_popul = r.json()
-        df = pd.DataFrame(all_popul[0]['data'])
-        # на всякий случай задаем возраста: 
-            # 1) все с интервалом 1 год
-            # 2) 100+ 
-            # 3) с интервалом 4 года для старших
-        df = df[(df['age_start']==df['age_end'])|(
-                df['age_start']==100)|(
-                (df['age_end']-df['age_start']==4)&(df['age_end'].isin([74,79,84,
-                                                                        89,94,99])))]
-        df['группа'] = df.iloc[:,:2].apply(func, 1)
-        df = df.set_index('группа').iloc[:,2:]
-
-    except:
-        raise requests.exceptions.RequestException(f'Problem with {r.url}')
-    
-    # ставим года
-    df.columns = pd.MultiIndex.from_product([[given_year], ['Мужчины', 'Женщины']])
-    df.columns.set_names(['', "пол"], level=[0,1], inplace=True)
-    df.bfill(inplace=True)
-    
-    df = PreproDF.add_ages_70_to_100(df)
-    df.index = df.index.astype(str)
-    # уберем возрастные интервалы
-    df = df[df.index.isin([str(i) for i in range(0,101)])]
-    
-    df.index = df.index.astype(int)
-    df.sort_index(inplace=True)
-    
+    session = requests.Session()
+    df = PopInfoForAPI.get_detailed_pop(session, territory_id, 
+                                                   unpack_after_70=True, last_year=False, 
+                                                   specific_year=0)
+    last_pop_year = df.columns.levels[0][-1]
+    # если нужен год больше текущего -- делаем прогноз
+    if given_year > last_pop_year:
+        folders={'popdir':file_dir,
+             'file_name':'Ленинградская область.xlsx'}
+        df = DemForecast.MakeForecast(df, last_pop_year, 
+                                            given_year - last_pop_year, folders)
+        
     # выбираем нужный интервал возрастов
-    age_groups_df = PopulationInfo.age_groups(df, n_in_age_group=n_age_groups)
+    age_groups_df = PopulationInfo.age_groups(df[given_year], n_in_age_group=n_age_groups)
     
     # чтобы мужчины были слева графика
-    age_groups_df[given_year]['Мужчины'] *= -1
+    age_groups_df['Мужчины'] *= -1
     age_groups_df.index = age_groups_df.index.astype(str)
     
-    return Response(age_groups_df[given_year].to_json(orient="split"), 
+    return Response(age_groups_df.to_json(orient="split"), 
                     mimetype='application/json')
 
 
