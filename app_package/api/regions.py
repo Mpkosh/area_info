@@ -94,46 +94,22 @@ def migration_data():
     territory_id = request.args.get('territory_id', type = int, default=34)
     n_age_groups = request.args.get('n_age_groups', type = int, default=5)
     
-    try:
-        url = social_api + f'indicators/2/{territory_id}/detailed'
-        
-        dfs = []
-        # нужны данные за два года
-        for year in [given_year-1, given_year]:
-            r = requests.get(url, params={'year':year})
-            all_popul = r.json()
-            
-            df = pd.DataFrame(all_popul[0]['data'])
-            # на всякий случай задаем возраста: 
-                # 1) все с интервалом 1 год
-                # 2) 100+ 
-                # 3) с интервалом 4 года для старших
-            df = df[(df['age_start']==df['age_end'])|(
-                    df['age_start']==100)|(
-                    (df['age_end']-df['age_start']==4)&(df['age_end'].isin([74,79,84,
-                                                                            89,94,99])))]
-            df['группа'] = df.iloc[:,:2].apply(func, 1)
-            df = df.set_index('группа').iloc[:,2:]
-            df.columns = ['Мужчины', 'Женщины']
-            dfs.append(df)
-    except:
-        raise requests.exceptions.RequestException(f'Problem with {r.url}')
     
-    df_full = pd.concat(dfs, axis=1, ignore_index=True) 
-    # ставим года
-    df_full.columns = pd.MultiIndex.from_tuples([(given_year-1, "Мужчины"),(given_year-1, 'Женщины'),
-                                                       (given_year, "Мужчины"),(given_year, 'Женщины')])
-    df_full.columns.set_names(['', "пол"], level=[0,1], inplace=True)
-    df_full.bfill(inplace=True)
+    session = requests.Session()
+    df = PopInfoForAPI.get_detailed_pop(session, territory_id, 
+                                                   unpack_after_70=True, last_year=False, 
+                                                   specific_year=0)
+    last_pop_year = df.columns.levels[0][-1]
+    # если нужен год больше текущего -- делаем прогноз
+    if given_year > last_pop_year:
+        folders={'popdir':file_dir,
+             'file_name':'Ленинградская область.xlsx'}
+        df = DemForecast.MakeForecast(df, last_pop_year, 
+                                            given_year - last_pop_year, folders)
     
-    df_full = PreproDF.add_ages_70_to_100(df_full)
-    df_full.index = df_full.index.astype(str)
-    # уберем возрастные интервалы
-    df_full = df_full[df_full.index.isin([str(i) for i in range(0,101)])]
+    df_full = df[[given_year-1,given_year]]
     
-    df_full.index = df_full.index.astype(int)
-    df_full.sort_index(inplace=True)
-    
+ 
     # вычисляем сальдо
     difference_df = PopulationInfo.expected_vs_real(df_full,
                                                     morrate_file=file_dir+'morrate.xlsx')
