@@ -362,34 +362,6 @@ def mig_forecast():
     inputdata = inputdata.astype(float)
     
     res = MigForecast.model_outcome(inputdata)
-    res = inputdata['popsize']+res
-
-    return Response(res.to_json(orient="records"), 
-                    mimetype='application/json')
-
-
-@bp_api.route('/migrations/forecast_fin', methods=['GET'])
-@cross_origin()
-def mig_forecast_fin():
-    features = ['year', 'popsize', 'avgemployers', 'avgsalary', 'shoparea', 
-                'foodseats', 'retailturnover', 'livarea', 'sportsvenue', 
-                'servicesnum', 'roadslen', 'livestock', 'harvest', 'agrprod', 
-                'hospitals', 'beforeschool']
-    
-    print(list(request.args.keys()))
-    print(list(request.args.listvalues()))
-    input_values = []
-    for param in features:
-        param_value = request.args.get(param, type = float)
-        input_values.append(param_value)
-    
-    # обработка входных параметров
-    inputdata = pd.DataFrame.from_records([input_values], 
-                                          columns=features)
-    inputdata = inputdata.astype(float)
-    
-    res = MigForecast.model_outcome(inputdata)
-    res = inputdata['popsize']+res
-
-    return Response(res.to_json(orient="records"), 
+    res_df = pd.DataFrame([res], columns=['popsize', 'saldo'])
+    return Response(res_df.to_json(orient="records"), 
                     mimetype='application/json')

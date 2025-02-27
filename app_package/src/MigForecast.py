@@ -8,22 +8,22 @@ file_path = 'app_package/src/for_mig_forecast/'
 
 
 #Нормирование цен согласно инфляции
-def normbyinf(inputdata):
+def normbyinf(inputdata, infdata, year):
     # признаки для ценового нормирования
+    allrubfeatures = ['avgsalary', 'retailturnover', 'foodservturnover', 'agrprod', 'invest', 'budincome',
+                      'funds', 'naturesecure', 'factoriescap']
+
     thisrubfeatures = ['avgsalary', 'retailturnover', 'agrprod']
     
     infdata = pd.read_csv(file_path+"inflation14.csv")
-    # если задан год больше 2023, берем инфляцию за 2023
-    if inputdata['year'].values[0] > 2023:
-        given_year = 2023
-    else:
-        given_year = inputdata['year'].values[0]
     
     # получить инфляцию за необходимый год
-    inflation = infdata[infdata['year'] == given_year]['inf'].values[0]
-    inputdata.loc[:,thisrubfeatures] = inputdata[thisrubfeatures] * inflation / 100
+    inflation = infdata[infdata['year'] == year]['inf'].values[0]
+    
+    infnorm = 1 - inflation / 100
+    inputdata.loc[:,thisrubfeatures] = inputdata[thisrubfeatures] * infnorm
 
-    return inputdata
+    return inputdata.iloc[0]
 
 
 # Нормирование данных для модели (от 0 до 1)
@@ -44,22 +44,38 @@ def normformodel(inputdata):
     features = list(norm.columns[1:])
     final = pd.DataFrame(final, columns=features)
     inputdata = final
-    return inputdata, norm.iloc[0]['saldo']
+    
+    return inputdata.iloc[0], norm.iloc[0]['saldo']
 
 
 def model_outcome(inputdata):
+
     # загрузка модели; sklearn == 1.2.2!
     model = joblib.load(file_path+'migpred (24, tree).joblib')
 
-    #нормализация входных данных
-    inputdata = normbyinf(inputdata)
-    # отрезать показатель year
-    inputdata = inputdata.iloc[:, 1:]
-    inputdata, maxsaldo = normformodel(inputdata)
+    startyear = 2024    # начальная точка прогноза, т.е. первый прогноз делается на 25-ый год
+    endyear = int(inputdata.iloc[0]['year'])
+    inputdata = inputdata.iloc[:, 1:]  # отрезать показатель year
+
+    # нормализация согласно инфляции
+    infdata = pd.read_csv(file_path+"inflation14.csv")
+    dataforpred = []
+    dataforpred.append(np.array(normbyinf(inputdata, infdata, startyear)))
+
+    # список в датафрейм
+    dataforpred = pd.DataFrame(dataforpred, columns=inputdata.columns)
+
+    #нормализация под модель прогноза
+    maxsaldo = 0
+    for i in range(len(dataforpred)):
+        dataforpred.iloc[i], maxsaldo = normformodel(dataforpred.iloc[[i]])
 
     # выполнение прогноза
-    prediction = model.predict(inputdata)
+    predsaldo = 0
+    prediction = model.predict(dataforpred)
     prediction = prediction * maxsaldo
-    inputdata['predsaldo'] = int(prediction)
+    predsaldo = int(np.sum(prediction))
+    
+    fin_saldo = predsaldo * (endyear - startyear)
 
-    return inputdata['predsaldo']
+    return [inputdata['popsize'].values[0]+fin_saldo, fin_saldo] 
