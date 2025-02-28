@@ -11,7 +11,8 @@ from app_package.api import bp as bp_api
 from app_package.src import PreproDF, PopulationInfo, \
                             AreaOnMapFile, DensityInfo, \
                             PopInfoForAPI, MigInfoForAPI, \
-                            ValIdentityMatrix, MigForecast, DemForecast
+                            ValIdentityMatrix, MigForecast, \
+                            DemForecast, ClusterInfo
 
 import pandas as pd
 import geopandas as gpd
@@ -364,4 +365,107 @@ def mig_forecast():
     res = MigForecast.model_outcome(inputdata)
     res_df = pd.DataFrame([res], columns=['popsize', 'saldo'])
     return Response(res_df.to_json(orient="records"), 
+                    mimetype='application/json')
+
+
+# ___________________ Cluster analysis
+
+# определить кластер для входных данных
+@bp_api.route('/cluster_info/cluster', methods=['GET'])
+@cross_origin()
+def cluster():
+    features = ['type','profile','year', 'popsize', 'avgemployers', 'avgsalary', 'shoparea', 
+                'foodseats', 'retailturnover', 'livarea', 'sportsvenue', 
+                'servicesnum', 'roadslen', 'livestock', 'harvest', 'agrprod', 
+                'hospitals', 'beforeschool']
+    
+    input_values = []
+    for param in features:
+        param_value = request.args.get(param)
+        input_values.append(param_value)
+    
+    # обработка входных параметров
+    inputdata = pd.DataFrame.from_records([input_values], 
+                                          columns=features)
+    inputdata.iloc[:,2:] = inputdata.iloc[:,2:].astype(float)
+    
+    
+    res = ClusterInfo.whatcluster(inputdata)
+    return res
+    #return Response(res_df.to_json(orient="records"),  mimetype='application/json')
+
+
+# поиск наиболее близки поселений на основе социально-экономических индикаторов
+@bp_api.route('/cluster_info/top10_closest', methods=['GET'])
+@cross_origin()
+def top10_closest():
+    features = ['type','profile','year', 'popsize', 'avgemployers', 'avgsalary', 'shoparea', 
+                'foodseats', 'retailturnover', 'livarea', 'sportsvenue', 
+                'servicesnum', 'roadslen', 'livestock', 'harvest', 'agrprod', 
+                'hospitals', 'beforeschool']
+    
+    input_values = []
+    for param in features:
+        param_value = request.args.get(param)
+        input_values.append(param_value)
+    
+    # обработка входных параметров
+    inputdata = pd.DataFrame.from_records([input_values], 
+                                          columns=features)
+    inputdata.iloc[:,2:] = inputdata.iloc[:,2:].astype(float)
+    
+    
+    res = ClusterInfo.siblingsfinder(inputdata)
+    return Response(res.to_json(orient="records"),  
+                    mimetype='application/json')
+
+
+# разница от наиболее близкого из лучшего кластера
+@bp_api.route('/cluster_info/diff_from_closest', methods=['GET'])
+@cross_origin()
+def diff_from_closest():
+    features = ['type','profile','year', 'popsize', 'avgemployers', 'avgsalary', 'shoparea', 
+                'foodseats', 'retailturnover', 'livarea', 'sportsvenue', 
+                'servicesnum', 'roadslen', 'livestock', 'harvest', 'agrprod', 
+                'hospitals', 'beforeschool']
+    
+    input_values = []
+    for param in features:
+        param_value = request.args.get(param)
+        input_values.append(param_value)
+    
+    # обработка входных параметров
+    inputdata = pd.DataFrame.from_records([input_values], 
+                                          columns=features)
+    inputdata.iloc[:,2:] = inputdata.iloc[:,2:].astype(float)
+    
+    
+    res = ClusterInfo.headtohead(inputdata)
+    return Response(res.to_json(),  
+                    mimetype='application/json')
+
+
+# разница от наиболее близкого из лучшего кластера
+@bp_api.route('/cluster_info/change_plan', methods=['GET'])
+@cross_origin()
+def change_plan():
+    features = ['type','profile','year', 'popsize', 'avgemployers', 'avgsalary', 'shoparea', 
+                'foodseats', 'retailturnover', 'livarea', 'sportsvenue', 
+                'servicesnum', 'roadslen', 'livestock', 'harvest', 'agrprod', 
+                'hospitals', 'beforeschool']
+    
+    input_values = []
+    for param in features:
+        param_value = request.args.get(param)
+        input_values.append(param_value)
+    
+    # обработка входных параметров
+    inputdata = pd.DataFrame.from_records([input_values], 
+                                          columns=features)
+    inputdata.iloc[:,2:] = inputdata.iloc[:,2:].astype(float)
+    
+    
+    res = ClusterInfo.reveal(inputdata)
+
+    return Response(res.to_json(orient="records"),  
                     mimetype='application/json')

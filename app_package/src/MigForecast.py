@@ -49,7 +49,6 @@ def normformodel(inputdata):
 
 
 def model_outcome(inputdata):
-
     # загрузка модели; sklearn == 1.2.2!
     model = joblib.load(file_path+'migpred (24, tree).joblib')
 
