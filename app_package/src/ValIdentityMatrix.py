@@ -20,7 +20,7 @@ non_pop_features = ['livarea', 'consnewapt', 'avgsalary', 'avgemployers', 'pollu
 
 def get_oktmo_level(territory_id: int) -> int:
 	"""
-	Получает territory_id региона (если рассматриваются МО уровня 3), код ОКТМО и уровень для заданной по territory_id территории
+	Получает territory_id региона (если рассматриваются МО уровня 4), код ОКТМО и уровень для заданной по territory_id территории
 
 	Возвращает tuple(int, int, int), в котором:
 	- элемент 0 - territory_id региона, в котором расположено данное поселение или None для районов;
@@ -33,10 +33,10 @@ def get_oktmo_level(territory_id: int) -> int:
 	URL = terr_api + f"/api/v1/territory/{territory_id}"
 	r = requests.get(url = URL)
 	data = r.json()
-	level = data['territory_type']['id']
-	if level == 2:
+	level = data['level']
+	if level == 3:
 		oktmo = int(data['oktmo_code'])
-	elif level == 3:
+	elif level == 4:
 		parent_id = data['parent']['id']
 		URL2 = terr_api + f"/api/v1/territory/{parent_id}"
 		parent_r = requests.get(url = URL2)
@@ -152,12 +152,11 @@ def color_intensity(row):
 def muni_tab(territory_id: int, feature_changed = False, changes_dict = "") -> json:
 	"""
 	Составляет таблицу показателей удовлетворённости жителей определённой локации по различным уровням ценностей, связанных с различными идентичностями
-	для заданного района
+	для заданного района, городского или сельского поселений.
 
 	Возвращает json с таблицей
 
 	:param int territory_id: id территории, по которому будет строиться таблица
-	:param int level: id уровня территории, для которой будет строиться таблица
 	:param bool feature_changed: флажок, указывающий на то, изменил ли пользователь значения каких-то факторов
 	:param dict changes_dict: словарь изменений в показатели, внесённых пользователем. На данный момент ожидается следующий формат:
 	{"<Название 1ого изменённого индикатора>": <новое значение>,
@@ -171,7 +170,7 @@ def muni_tab(territory_id: int, feature_changed = False, changes_dict = "") -> j
 	#получаем id региона, oktmo и уровень данного муниципального образования
 	region_id, oktmo, level = get_oktmo_level(territory_id)
 	
-	if level == 2:
+	if level == 3:
 		##ДЛЯ РАЙОНОВ
 		#вычисляем октмо региона
 		reg_oktmo = oktmo - (oktmo % 1000000)
@@ -218,7 +217,7 @@ def muni_tab(territory_id: int, feature_changed = False, changes_dict = "") -> j
 		#теперь выдаём это, как json, и всё
 		return tab.to_json()
 
-	elif level == 3:
+	elif level == 4:
 		##ДЛЯ ГП/СП
 		#загружаем таблицу поселений региона
 		reg_df = pd.read_csv(f'{file_path}df_{region_id}_{level}.csv', sep = ';', index_col = 0)
@@ -261,3 +260,49 @@ def muni_tab(territory_id: int, feature_changed = False, changes_dict = "") -> j
 	else:
 		##ДЛЯ ДРУГИХ УРОВНЕЙ
 		raise ValueError(f'Localities of this level (given: {level}) are not supported in this request')
+
+#Функция для комплексной выдачи таблицы
+def ch_muni_tab(parent_id: int, show_level: int) -> json:
+	"""
+	Составляет таблицу показателей удовлетворённости жителей для всех локаций определённого уровня по parent_id по различным уровням ценностей, связанных с
+	различными идентичностями
+
+	Возвращает json с таблицей
+
+	:param int parent_id: id территории, по по "детям" которой будут строиться таблицы
+	:param int show_level: id уровня "детских" территорий, для которых будут строиться таблицы
+	"""
+	#уровень 3 - районы
+	if (show_level != 3) & (show_level != 4):
+		raise ValueError(f'Localities of this level (given: {show_level}) are not supported in this request')
+	URL = terr_api + f"/api/v1/territory/{parent_id}"
+	r = requests.get(url = URL)
+	level = r.json()['level']
+	if show_level <= level:
+		raise ValueError(f'Show level (given: {show_level}) must be > parent territory level (given: parent_id = {parent_id} with level {level})')
+	if level == 1:
+		raise ValueError(f'Creating matrices for each district or urban/rural settlement in Russia at a time is not supported')
+
+	if (level == 2) & (show_level == 3):
+		#Получаем oktmo региона
+		URL = terr_api + f"/api/v1/territories_without_geometry?parent_id={parent_id}&get_all_levels=false&cities_only=false&ordering=asc&page=1&page_size=1"
+		r = requests.get(url = URL)
+		oktmo = int(r.json()['results'][0]['oktmo_code'])
+		reg_oktmo = oktmo - (oktmo % 1000000)
+
+		#загружаем общую таблицу
+		full_df = pd.read_csv(f'{file_path}full_df4.csv', sep = ';', index_col = 0)
+
+		#получаем таблицу региона
+		reg_df = full_df[(full_df.index >= reg_oktmo) & (full_df.index < reg_oktmo + 1000000)]
+
+		##переводим таблицу индикаторов региона в таблицу значений "клеточек" для региона
+		#для этого загрузим таблицу коэффициентов
+		grid_coeffs = pd.read_json(f'{file_path}grid_coeffs.json').reindex(['dev', 'soc', 'bas'])
+		reg_tab = reg_df_to_tab(reg_df, grid_coeffs)
+
+		#нормализуем полученные значения по региону
+		reg_tab = recount_data_for_reg(reg_tab)
+
+		return reg_tab.to_json()
+	pass

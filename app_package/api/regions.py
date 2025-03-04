@@ -290,6 +290,17 @@ def values_identities():
     return Response(result, mimetype='application/json')
 
 
+@bp_api.route('/regions/children_values_identities', methods=['GET'])
+@cross_origin()
+def ch_values_identities():
+    parent_id = request.args.get('parent_id', type = int, default = 1)
+    show_level = request.args.get('show_level', type = int, default = 3)
+    #level 3 - districts
+    result = ValIdentityMatrix.ch_muni_tab(parent_id, show_level)
+    return Response(result, mimetype='application/json')
+
+
+
 #____________ OFFICIAL F21
 
 
