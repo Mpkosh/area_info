@@ -44,8 +44,8 @@ def clip_all_children(all_children, p_id=34):
     a = a.drop(columns='geometry').set_geometry('centre_point')
     
     # объединим, чтобы для каждого ГП/СП был один полигон
-    
-    gpsp_with_kids = a[a.level==5].dissolve(by='parent.name')
+    #gpsp_with_kids = a[a.level==5].dissolve(by='parent.name')
+    gpsp_with_kids = a[a['parent.id']==int(p_id)].dissolve(by='parent.name')
     
     # для ЛенОбласти будет непустое
     gpsp_with_parent = a[(a.level==4)&(a['parent.id']!=int(p_id))][['territory_id','name',
@@ -151,9 +151,9 @@ def get_density_data(session, territory_id=34, from_api=False):
 
     #    Данные о всех населенных пунктах
     all_children = get_all_children_data(session, territory_id, from_api)
-    
     # вручную режем по границе КАЖДОГО ГП/СП
     np_clipped = clip_all_children(all_children, p_id=territory_id)
+    
     vills_in_area = np_clipped.reset_index().set_crs(epsg=4326)[['parent.name','centre_point']]
     '''
     # деревни в виде точек
@@ -161,7 +161,7 @@ def get_density_data(session, territory_id=34, from_api=False):
     children['centre_point'] = children['centre_point'].apply(lambda x: create_point(x))
     vills_in_area = children.reset_index().set_crs(epsg=4326)[['parent.name','centre_point']]
     '''
-    
+
     fin_vills_full = df.merge(vills_in_area, left_on='name', right_on='parent.name')
     
     return df, fin_vills_full, all_children
