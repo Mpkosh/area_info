@@ -45,7 +45,8 @@ def clip_all_children(all_children, p_id=34):
     
     # объединим, чтобы для каждого ГП/СП был один полигон
     #gpsp_with_kids = a[a.level==5].dissolve(by='parent.name')
-    gpsp_with_kids = a[a['parent.id']==int(p_id)].dissolve(by='parent.name')
+    #gpsp_with_kids = a[a['parent.id']==int(p_id)].dissolve(by='parent.name')
+    gpsp_with_kids = a[a['parent.id']!=int(p_id)].dissolve(by='parent.id')
     
     # для ЛенОбласти будет непустое
     gpsp_with_parent = a[(a.level==4)&(a['parent.id']!=int(p_id))][['territory_id','name',
@@ -154,7 +155,10 @@ def get_density_data(session, territory_id=34, from_api=False):
     # вручную режем по границе КАЖДОГО ГП/СП
     np_clipped = clip_all_children(all_children, p_id=territory_id)
     
-    vills_in_area = np_clipped.reset_index().set_crs(epsg=4326)[['parent.name','centre_point']]
+    #vills_in_area = np_clipped.reset_index().set_crs(epsg=4326)[['parent.name','centre_point']]
+    
+    vills_in_area = np_clipped.reset_index().set_crs(epsg=4326)[['parent.id','centre_point']]
+    
     '''
     # деревни в виде точек
     children = all_children[all_children.level==5].copy()
@@ -162,7 +166,8 @@ def get_density_data(session, territory_id=34, from_api=False):
     vills_in_area = children.reset_index().set_crs(epsg=4326)[['parent.name','centre_point']]
     '''
 
-    fin_vills_full = df.merge(vills_in_area, left_on='name', right_on='parent.name')
+    #fin_vills_full = df.merge(vills_in_area, left_on='name', right_on='parent.name')
+    fin_vills_full = df.merge(vills_in_area, left_on='territory_id', right_on='parent.id')
     
     return df, fin_vills_full, all_children
 
@@ -176,11 +181,14 @@ def density_data_geojson(session, territory_id=34, from_api=False):
                                                                           'geometry_y':'geometry_villages'}
                                                                  ).set_geometry('geometry_areas'
                                                                                ).set_index('territory_id')
-    '''
+    
     full_df = fin_vills_full.drop(columns=['parent.name']).rename(columns={'geometry':'geometry_areas',
                                                                           'centre_point':'geometry_villages'}
-                                                                 ).set_geometry('geometry_areas'
-                                                                               ).set_index('territory_id')
+                                                                 ).set_geometry('geometry_areas')
+    '''              
+    full_df = fin_vills_full.drop(columns=['parent.id']).rename(columns={'geometry':'geometry_areas',
+                                                                         'centre_point':'geometry_villages'}
+                                                                ).set_geometry('geometry_areas').set_index('territory_id')
     # меняем, чтобы удалось преобразовать в geojson
     full_df['geometry_villages'] = full_df['geometry_villages'].astype('str')
     
