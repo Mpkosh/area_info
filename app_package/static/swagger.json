@@ -253,6 +253,314 @@
         }
       }
     },
+    "/cluster_info/cluster": {
+      "get": {
+        "tags": [
+          "Cluster Analysis"
+        ],
+        "summary": "Get territory cluster",
+        "description": "## Get territory cluster.\n\n**Parameters**:\n* **type** (string, Query): Тип кластеров по уровню территории.\n* **profile** (string, Query): Профиль территории.\n* **year** (int, Query): Год для учета инфляции.\n* **popsize** (int, Query): Население (чел.).\n* **avgemployers** (int, Query): Среднее число работников организаций (чел.)\n* **avgsalary** (float, Query): Средняя зарплата (руб.)\n* **shoparea** (int, Query): Площадь торговых залов магазинов (кв. м.)\n* **foodseats** (int, Query): Количество мест в ресторанах кафе барах (место)\n* **retailturnover** (float, Query): Оборот розничной торговли без малых предприятий (тыс. руб.)\n* **livarea** (float, Query): Жилая площадь на одного человека (кв. м.)\n* **sportsvenue** (int, Query): Число спортивных сооружений (шт.)\n* **servicesnum** (int, Query): Объекты бытового обслуживания (шт.)\n* **roadslen** (float, Query): Длина дорог (км)\n* **livestock** (int, Query): Поголовье скота всех видов (шт.)\n* **harvest** (int, Query): Урожайность овощей (цент.)\n* **agrprod** (float, Query): Продукция сельского хозяйства (тыс. руб.)\n* **hospitals** (int, Query): Лечебно-профилактические организации (шт.)\n* **beforeschool** (float, Query): Число мест в дошкольных обр. учреждениях (шт.)\n\n**Returns**: \n* **str**: \n  * Corresponding cluster and its description.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/type"
+          },
+          {
+            "$ref": "#/components/parameters/profile"
+          },
+          {
+            "$ref": "#/components/parameters/year"
+          },
+          {
+            "$ref": "#/components/parameters/popsize"
+          },
+          {
+            "$ref": "#/components/parameters/avgemployers"
+          },
+          {
+            "$ref": "#/components/parameters/avgsalary"
+          },
+          {
+            "$ref": "#/components/parameters/shoparea"
+          },
+          {
+            "$ref": "#/components/parameters/foodseats"
+          },
+          {
+            "$ref": "#/components/parameters/retailturnover"
+          },
+          {
+            "$ref": "#/components/parameters/livarea"
+          },
+          {
+            "$ref": "#/components/parameters/sportsvenue"
+          },
+          {
+            "$ref": "#/components/parameters/servicesnum"
+          },
+          {
+            "$ref": "#/components/parameters/roadslen"
+          },
+          {
+            "$ref": "#/components/parameters/livestock"
+          },
+          {
+            "$ref": "#/components/parameters/harvest"
+          },
+          {
+            "$ref": "#/components/parameters/agrprod"
+          },
+          {
+            "$ref": "#/components/parameters/hospitals"
+          },
+          {
+            "$ref": "#/components/parameters/beforeschool"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/cluster_info_cluster_200"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cluster_info/top10_closest": {
+      "get": {
+        "tags": [
+          "Cluster Analysis"
+        ],
+        "summary": "Find 10 closest areas",
+        "description": "## Find 10 closest areas.\n**Parameters**:\n* **type** (string, Query): Тип кластеров по уровню территории.\n* **profile** (string, Query): Профиль территории.\n* **year** (int, Query): Год для учета инфляции.\n* **popsize** (int, Query): Население (чел.).\n* **avgemployers** (int, Query): Среднее число работников организаций (чел.)\n* **avgsalary** (float, Query): Средняя зарплата (руб.)\n* **shoparea** (int, Query): Площадь торговых залов магазинов (кв. м.)\n* **foodseats** (int, Query): Количество мест в ресторанах кафе барах (место)\n* **retailturnover** (float, Query): Оборот розничной торговли без малых предприятий (тыс. руб.)\n* **livarea** (float, Query): Жилая площадь на одного человека (кв. м.)\n* **sportsvenue** (int, Query): Число спортивных сооружений (шт.)\n* **servicesnum** (int, Query): Объекты бытового обслуживания (шт.)\n* **roadslen** (float, Query): Длина дорог (км)\n* **livestock** (int, Query): Поголовье скота всех видов (шт.)\n* **harvest** (int, Query): Урожайность овощей (цент.)\n* **agrprod** (float, Query): Продукция сельского хозяйства (тыс. руб.)\n* **hospitals** (int, Query): Лечебно-профилактические организации (шт.)\n* **beforeschool** (float, Query): Число мест в дошкольных обр. учреждениях (шт.)\n\n**Returns**: \n* **j**: \n  * .",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/type"
+          },
+          {
+            "$ref": "#/components/parameters/profile"
+          },
+          {
+            "$ref": "#/components/parameters/year"
+          },
+          {
+            "$ref": "#/components/parameters/popsize"
+          },
+          {
+            "$ref": "#/components/parameters/avgemployers"
+          },
+          {
+            "$ref": "#/components/parameters/avgsalary"
+          },
+          {
+            "$ref": "#/components/parameters/shoparea"
+          },
+          {
+            "$ref": "#/components/parameters/foodseats"
+          },
+          {
+            "$ref": "#/components/parameters/retailturnover"
+          },
+          {
+            "$ref": "#/components/parameters/livarea"
+          },
+          {
+            "$ref": "#/components/parameters/sportsvenue"
+          },
+          {
+            "$ref": "#/components/parameters/servicesnum"
+          },
+          {
+            "$ref": "#/components/parameters/roadslen"
+          },
+          {
+            "$ref": "#/components/parameters/livestock"
+          },
+          {
+            "$ref": "#/components/parameters/harvest"
+          },
+          {
+            "$ref": "#/components/parameters/agrprod"
+          },
+          {
+            "$ref": "#/components/parameters/hospitals"
+          },
+          {
+            "$ref": "#/components/parameters/beforeschool"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/cluster_info_top10_closest_200"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cluster_info/diff_from_closest": {
+      "get": {
+        "tags": [
+          "Cluster Analysis"
+        ],
+        "summary": "Difference between given territory and the closest one",
+        "description": "## Get difference between given territory and the closest one.\n**Parameters**:\n* **type** (string, Query): Тип кластеров по уровню территории.\n* **profile** (string, Query): Профиль территории.\n* **year** (int, Query): Год для учета инфляции.\n* **popsize** (int, Query): Население (чел.).\n* **avgemployers** (int, Query): Среднее число работников организаций (чел.)\n* **avgsalary** (float, Query): Средняя зарплата (руб.)\n* **shoparea** (int, Query): Площадь торговых залов магазинов (кв. м.)\n* **foodseats** (int, Query): Количество мест в ресторанах кафе барах (место)\n* **retailturnover** (float, Query): Оборот розничной торговли без малых предприятий (тыс. руб.)\n* **livarea** (float, Query): Жилая площадь на одного человека (кв. м.)\n* **sportsvenue** (int, Query): Число спортивных сооружений (шт.)\n* **servicesnum** (int, Query): Объекты бытового обслуживания (шт.)\n* **roadslen** (float, Query): Длина дорог (км)\n* **livestock** (int, Query): Поголовье скота всех видов (шт.)\n* **harvest** (int, Query): Урожайность овощей (цент.)\n* **agrprod** (float, Query): Продукция сельского хозяйства (тыс. руб.)\n* **hospitals** (int, Query): Лечебно-профилактические организации (шт.)\n* **beforeschool** (float, Query): Число мест в дошкольных обр. учреждениях (шт.)\n\n**Returns**: \n* **j**: \n  * .",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/type"
+          },
+          {
+            "$ref": "#/components/parameters/profile"
+          },
+          {
+            "$ref": "#/components/parameters/year"
+          },
+          {
+            "$ref": "#/components/parameters/popsize"
+          },
+          {
+            "$ref": "#/components/parameters/avgemployers"
+          },
+          {
+            "$ref": "#/components/parameters/avgsalary"
+          },
+          {
+            "$ref": "#/components/parameters/shoparea"
+          },
+          {
+            "$ref": "#/components/parameters/foodseats"
+          },
+          {
+            "$ref": "#/components/parameters/retailturnover"
+          },
+          {
+            "$ref": "#/components/parameters/livarea"
+          },
+          {
+            "$ref": "#/components/parameters/sportsvenue"
+          },
+          {
+            "$ref": "#/components/parameters/servicesnum"
+          },
+          {
+            "$ref": "#/components/parameters/roadslen"
+          },
+          {
+            "$ref": "#/components/parameters/livestock"
+          },
+          {
+            "$ref": "#/components/parameters/harvest"
+          },
+          {
+            "$ref": "#/components/parameters/agrprod"
+          },
+          {
+            "$ref": "#/components/parameters/hospitals"
+          },
+          {
+            "$ref": "#/components/parameters/beforeschool"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/cluster_info_diff_from_closest_200"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cluster_info/change_plan": {
+      "get": {
+        "tags": [
+          "Cluster Analysis"
+        ],
+        "summary": "Multiply features by how much to get to the best cluster centre",
+        "description": "## Multiply features by how much to get to the best cluster centre.\n\n**Parameters**:\n* **type** (string, Query): Тип кластеров по уровню территории.\n* **profile** (string, Query): Профиль территории.\n* **year** (int, Query): Год для учета инфляции.\n* **popsize** (int, Query): Население (чел.).\n* **avgemployers** (int, Query): Среднее число работников организаций (чел.)\n* **avgsalary** (float, Query): Средняя зарплата (руб.)\n* **shoparea** (int, Query): Площадь торговых залов магазинов (кв. м.)\n* **foodseats** (int, Query): Количество мест в ресторанах кафе барах (место)\n* **retailturnover** (float, Query): Оборот розничной торговли без малых предприятий (тыс. руб.)\n* **livarea** (float, Query): Жилая площадь на одного человека (кв. м.)\n* **sportsvenue** (int, Query): Число спортивных сооружений (шт.)\n* **servicesnum** (int, Query): Объекты бытового обслуживания (шт.)\n* **roadslen** (float, Query): Длина дорог (км)\n* **livestock** (int, Query): Поголовье скота всех видов (шт.)\n* **harvest** (int, Query): Урожайность овощей (цент.)\n* **agrprod** (float, Query): Продукция сельского хозяйства (тыс. руб.)\n* **hospitals** (int, Query): Лечебно-профилактические организации (шт.)\n* **beforeschool** (float, Query): Число мест в дошкольных обр. учреждениях (шт.)\n\n**Returns**: \n* **j**: \n  * .",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/type"
+          },
+          {
+            "$ref": "#/components/parameters/profile"
+          },
+          {
+            "$ref": "#/components/parameters/year"
+          },
+          {
+            "$ref": "#/components/parameters/popsize"
+          },
+          {
+            "$ref": "#/components/parameters/avgemployers"
+          },
+          {
+            "$ref": "#/components/parameters/avgsalary"
+          },
+          {
+            "$ref": "#/components/parameters/shoparea"
+          },
+          {
+            "$ref": "#/components/parameters/foodseats"
+          },
+          {
+            "$ref": "#/components/parameters/retailturnover"
+          },
+          {
+            "$ref": "#/components/parameters/livarea"
+          },
+          {
+            "$ref": "#/components/parameters/sportsvenue"
+          },
+          {
+            "$ref": "#/components/parameters/servicesnum"
+          },
+          {
+            "$ref": "#/components/parameters/roadslen"
+          },
+          {
+            "$ref": "#/components/parameters/livestock"
+          },
+          {
+            "$ref": "#/components/parameters/harvest"
+          },
+          {
+            "$ref": "#/components/parameters/agrprod"
+          },
+          {
+            "$ref": "#/components/parameters/hospitals"
+          },
+          {
+            "$ref": "#/components/parameters/beforeschool"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/cluster_info_diff_from_closest_200"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/regions/density_data_full": {
       "get": {
         "tags": [
@@ -548,6 +856,26 @@
         "in": "query",
         "description": "New values of the parameters changed by a user for a scenario (json).",
         "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "type": {
+        "name": "type",
+        "default": "all",
+        "in": "query",
+        "description": "Уровень территорий, для которых смотреть кластеры",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "profile": {
+        "name": "profile",
+        "default": "сельхоз (скот)",
+        "in": "query",
+        "description": "Профиль территории",
+        "required": true,
         "schema": {
           "type": "string"
         }
