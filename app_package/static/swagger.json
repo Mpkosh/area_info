@@ -79,8 +79,8 @@
         "tags": [
           "Module 11"
         ],
-        "summary": "Get a matrix of how satisfied are different values of different identity groups",
-        "description": "## Get a matrix of how satisfied are different values of different identity groups as a JSON.<br>\n**NOTE**: This request works for now only for districts (territory_type.id = 2) throughout Russia and for urban/rural settlements (territory_type.id = 3) of Leningrad region.\n\n**Parameters:**<br>\n* **territory_id** (int, Query): Unique identifier of the territory.\n* **feature_changed** (bool, Query): If True, changes values according to the **changes_dict** (default: False). **Note:** Not implemented\n* **changes_dict** (str, Query): JSON-dictlike string of changes in feature values for a scenario. The form of changes should be this: {<feature_name>: <new_value>, ...}. **Note:** Not implemented.<br>\n\n**Returns:**<br>\n* **JSONResponse[Identity[ValuesLevel[SatisfactionLevel, RegionMeanSatisfactionLevel, ColorIntensity]]]:** A JSON response containing values of satisfaction for each identity group - values level pairing.\n\n**Further description of the output:**<br>\n\n* The output data is a dictionary with five parameters (five identity groups):<br> - \"comm\" - common. Some stuff important for all identity groups.<br> - \"soc_workers\" - social identity of people who can work.<br> - \"soc_old\" - social identity of elderly people.<br> - \"soc_parents\" - social identity of people with children (considered to be able to work).<br> - \"loc\" - local. Some stuff important for people due to their local identity.<br><br>\n* Each one of the beforementioned parameters has three parameters. These are levels of values:<br> - \"dev\" - values of development.<br> - \"soc\" - social values.<br> - \"bas\" - basic values.<br><br>\n* Finally for each identity group and for each values level there's an array of three numbers:<br> 0. The value of satisfaction of an identity group in connection with a values level for the given district.<br> 1. The mean value of such satisfaction for the region of the given dictrict.<br> 2. The color intensity of the cellfor this satisfaction. Ranges from -1 to 1. Positives are for green color, negatives - for red color.",
+        "summary": "Get a matrix of how satisfied different values of different identity groups are",
+        "description": "## Get a matrix of how satisfied different values of different identity groups are as a JSON.<br>\n**NOTE**: This request works for now only for districts (level = 3) throughout Russia and for urban/rural settlements (level = 4) of Leningrad region.\n\n**Parameters:**<br>\n* **territory_id** (int, Query): Unique identifier of the territory.\n* **feature_changed** (bool, Query): If True, changes values according to the **changes_dict** (default: False). **Note:** Not implemented\n* **changes_dict** (str, Query): JSON-dictlike string of changes in feature values for a scenario. The form of changes should be this: {<feature_name>: <new_value>, ...}. **Note:** Not implemented.<br>\n\n**Returns:**<br>\n* **JSONResponse[Identity[ValuesLevel[SatisfactionLevel, RegionMeanSatisfactionLevel, ColorIntensity]]]:** A JSON response containing values of satisfaction for each identity group - values level pairing.\n\n**Further description of the output:**<br>\n\n* The output data is a dictionary with five parameters (five identity groups):<br> - \"comm\" - common. Some stuff important for all identity groups.<br> - \"soc_workers\" - social identity of people who can work.<br> - \"soc_old\" - social identity of elderly people.<br> - \"soc_parents\" - social identity of people with children (considered to be able to work).<br> - \"loc\" - local. Some stuff important for people due to their local identity.<br><br>\n* Each one of the beforementioned parameters has three parameters. These are levels of values:<br> - \"dev\" - values of development.<br> - \"soc\" - social values.<br> - \"bas\" - basic values.<br><br>\n* Finally for each identity group and for each values level there's an array of three numbers:<br> 0. The value of satisfaction of an identity group in connection with a values level for the given district.<br> 1. The mean value of such satisfaction for the region of the given dictrict.<br> 2. The color intensity of the cellfor this satisfaction. Ranges from -1 to 1. Positives are for green color, negatives - for red color.",
         "parameters": [
           {
             "$ref": "#/components/parameters/territory_id"
@@ -99,6 +99,35 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/values_identities_matrix_200"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/regions/children_values_identities": {
+      "get": {
+        "tags": [
+          "Module 11"
+        ],
+        "summary": "Get all children territories' matrices of how satisfied values of different identity groups are",
+        "description": "## Get all children territories' matrices of how satisfied different values of different identity groups are as a JSON.<br>\n**NOTE**: This request works for now only for children territories that are districts (level = 3) throughout Russia or urban/rural settlements (level = 4) of Leningrad region.\n\n**Parameters:**<br>\n* **parent_id** (int, Query): Unique identifier of the parent territory.\n* **show_level** (int, Query): The desired level of territories to get matrices of. **Note:** 3 or 4, should be less than parent_id territory level<br>\n\n**Returns:**<br>\n* **JSONResponse[Identity_ValuesLevel[Territory_id|oktmo: SatisfactionLevel,...],...]:** A JSON response containing values of satisfaction for each identity group - values level pairing in each child territory of a given parent territory. **Note:** Oktmo-indexed dataframe is returned for districts (show_level = 3) and territory_id-indexed one - for settlements (show_level = 4).\n\n**Further description of the output:**<br>\n\n* The output data is a dictionary where each key is an identity group - values level pairing. And each value is a dictionary where each key is a territory_id or an oktmo of a municipality and each value is the value of satisfaction of an identity group in connection with a values level for the municipality.\n* The region means and cell colorings are not given through this request (unlike the previous one).",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/parent_id"
+          },
+          {
+            "$ref": "#/components/parameters/show_level_2"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/children_values_identities_matrix_200"
                 }
               }
             }
@@ -780,6 +809,16 @@
           "type": "integer"
         }
       },
+      "show_level_2": {
+        "name": "show_level",
+        "default": 4,
+        "in": "query",
+        "description": "Territory levels to show.",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      },
       "okato_id": {
         "name": "okato_id",
         "default": 41206000000,
@@ -1451,6 +1490,387 @@
                   0.72,
                   0.74
                 ]
+              }
+            }
+          }
+        }
+      },
+      "children_values_identities_matrix_200": {
+        "title": "Sample",
+        "type": "object",
+        "properties": {
+          "comm_dev": {
+            "type": "object",
+            "properties": {
+              "154": {
+                "type": "number",
+                "example": null
+              },
+              "155": {
+                "type": "number",
+                "example": null
+              },
+              "156": {
+                "type": "number",
+                "example": null
+              },
+              "157": {
+                "type": "number",
+                "example": null
+              },
+              "158": {
+                "type": "number",
+                "example": null
+              }
+            }
+          },
+          "soc_workers_dev": {
+            "type": "object",
+            "properties": {
+              "154": {
+                "type": "number",
+                "example": null
+              },
+              "155": {
+                "type": "number",
+                "example": null
+              },
+              "156": {
+                "type": "number",
+                "example": null
+              },
+              "157": {
+                "type": "number",
+                "example": null
+              },
+              "158": {
+                "type": "number",
+                "example": null
+              }
+            }
+          },
+          "soc_old_dev": {
+            "type": "object",
+            "properties": {
+              "154": {
+                "type": "number",
+                "example": 0.17
+              },
+              "155": {
+                "type": "number",
+                "example": 1
+              },
+              "156": {
+                "type": "number",
+                "example": 0.09
+              },
+              "157": {
+                "type": "number",
+                "example": 0.33
+              },
+              "158": {
+                "type": "number",
+                "example": 0.07
+              }
+            }
+          },
+          "soc_parents_dev": {
+            "type": "object",
+            "properties": {
+              "154": {
+                "type": "number",
+                "example": 0.42
+              },
+              "155": {
+                "type": "number",
+                "example": 0.71
+              },
+              "156": {
+                "type": "number",
+                "example": 0.31
+              },
+              "157": {
+                "type": "number",
+                "example": 0.37
+              },
+              "158": {
+                "type": "number",
+                "example": 0.38
+              }
+            }
+          },
+          "loc_dev": {
+            "type": "object",
+            "properties": {
+              "154": {
+                "type": "number",
+                "example": 0
+              },
+              "155": {
+                "type": "number",
+                "example": 0
+              },
+              "156": {
+                "type": "number",
+                "example": 0
+              },
+              "157": {
+                "type": "number",
+                "example": 0
+              },
+              "158": {
+                "type": "number",
+                "example": 0.07
+              }
+            }
+          },
+          "comm_soc": {
+            "type": "object",
+            "properties": {
+              "154": {
+                "type": "number",
+                "example": 0.07
+              },
+              "155": {
+                "type": "number",
+                "example": 0.2
+              },
+              "156": {
+                "type": "number",
+                "example": 0.04
+              },
+              "157": {
+                "type": "number",
+                "example": 0.1
+              },
+              "158": {
+                "type": "number",
+                "example": 0.08
+              }
+            }
+          },
+          "soc_workers_soc": {
+            "type": "object",
+            "properties": {
+              "154": {
+                "type": "number",
+                "example": 0.06
+              },
+              "155": {
+                "type": "number",
+                "example": 0.13
+              },
+              "156": {
+                "type": "number",
+                "example": 0.02
+              },
+              "157": {
+                "type": "number",
+                "example": 0.07
+              },
+              "158": {
+                "type": "number",
+                "example": 0.08
+              }
+            }
+          },
+          "soc_old_soc": {
+            "type": "object",
+            "properties": {
+              "154": {
+                "type": "number",
+                "example": 0.09
+              },
+              "155": {
+                "type": "number",
+                "example": 0.26
+              },
+              "156": {
+                "type": "number",
+                "example": 0.03
+              },
+              "157": {
+                "type": "number",
+                "example": 0.14
+              },
+              "158": {
+                "type": "number",
+                "example": 0.09
+              }
+            }
+          },
+          "soc_parents_soc": {
+            "type": "object",
+            "properties": {
+              "154": {
+                "type": "number",
+                "example": 0.06
+              },
+              "155": {
+                "type": "number",
+                "example": 0.13
+              },
+              "156": {
+                "type": "number",
+                "example": 0.02
+              },
+              "157": {
+                "type": "number",
+                "example": 0.07
+              },
+              "158": {
+                "type": "number",
+                "example": 0.08
+              }
+            }
+          },
+          "loc_soc": {
+            "type": "object",
+            "properties": {
+              "154": {
+                "type": "number",
+                "example": 0.14
+              },
+              "155": {
+                "type": "number",
+                "example": 0.24
+              },
+              "156": {
+                "type": "number",
+                "example": 0.15
+              },
+              "157": {
+                "type": "number",
+                "example": 0.14
+              },
+              "158": {
+                "type": "number",
+                "example": 0.07
+              }
+            }
+          },
+          "comm_bas": {
+            "type": "object",
+            "properties": {
+              "154": {
+                "type": "number",
+                "example": 0.29
+              },
+              "155": {
+                "type": "number",
+                "example": 0.49
+              },
+              "156": {
+                "type": "number",
+                "example": 0.39
+              },
+              "157": {
+                "type": "number",
+                "example": 0.41
+              },
+              "158": {
+                "type": "number",
+                "example": 0.6
+              }
+            }
+          },
+          "soc_workers_bas": {
+            "type": "object",
+            "properties": {
+              "154": {
+                "type": "number",
+                "example": 0.6
+              },
+              "155": {
+                "type": "number",
+                "example": 0.59
+              },
+              "156": {
+                "type": "number",
+                "example": 0.63
+              },
+              "157": {
+                "type": "number",
+                "example": 0.65
+              },
+              "158": {
+                "type": "number",
+                "example": 0.81
+              }
+            }
+          },
+          "soc_old_bas": {
+            "type": "object",
+            "properties": {
+              "154": {
+                "type": "number",
+                "example": 0.29
+              },
+              "155": {
+                "type": "number",
+                "example": 0.49
+              },
+              "156": {
+                "type": "number",
+                "example": 0.39
+              },
+              "157": {
+                "type": "number",
+                "example": 0.41
+              },
+              "158": {
+                "type": "number",
+                "example": 0.6
+              }
+            }
+          },
+          "soc_parents_bas": {
+            "type": "object",
+            "properties": {
+              "154": {
+                "type": "number",
+                "example": 0.11
+              },
+              "155": {
+                "type": "number",
+                "example": 0.13
+              },
+              "156": {
+                "type": "number",
+                "example": 0.12
+              },
+              "157": {
+                "type": "number",
+                "example": 0.14
+              },
+              "158": {
+                "type": "number",
+                "example": 0.19
+              }
+            }
+          },
+          "loc_bas": {
+            "type": "object",
+            "properties": {
+              "154": {
+                "type": "number",
+                "example": 0.85
+              },
+              "155": {
+                "type": "number",
+                "example": 0
+              },
+              "156": {
+                "type": "number",
+                "example": 0.91
+              },
+              "157": {
+                "type": "number",
+                "example": 0.66
+              },
+              "158": {
+                "type": "number",
+                "example": 0.86
               }
             }
           }
