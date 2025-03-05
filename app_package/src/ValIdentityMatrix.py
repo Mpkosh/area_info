@@ -284,6 +284,7 @@ def ch_muni_tab(parent_id: int, show_level: int) -> json:
 		raise ValueError(f'Creating matrices for each district or urban/rural settlement in Russia at a time is not supported')
 
 	if (level == 2) & (show_level == 3):
+		##Для районов в регионе
 		#Получаем oktmo региона
 		URL = terr_api + f"/api/v1/territories_without_geometry?parent_id={parent_id}&get_all_levels=false&cities_only=false&ordering=asc&page=1&page_size=1"
 		r = requests.get(url = URL)
@@ -304,5 +305,49 @@ def ch_muni_tab(parent_id: int, show_level: int) -> json:
 		#нормализуем полученные значения по региону
 		reg_tab = recount_data_for_reg(reg_tab)
 
+		return reg_tab.to_json()
+
+	elif (level == 2) & (show_level == 4):
+		##Для ГП/СП в регионе
+		#загружаем таблицу поселений региона
+		reg_df = pd.read_csv(f'{file_path}df_{parent_id}_{show_level}.csv', sep = ';', index_col = 0)
+
+		##переводим таблицу индикаторов региона в таблицу значений "клеточек" для региона
+		#для этого загрузим таблицу коэффициентов
+		grid_coeffs = pd.read_json(f'{file_path}grid_coeffs.json').reindex(['dev', 'soc', 'bas'])
+		reg_tab = reg_df_to_tab(reg_df, grid_coeffs)
+
+		#нормализуем полученные значения по региону
+		reg_tab = recount_data_for_reg(reg_tab)
+
+		#теперь выдаём это, как json, и всё
+		return reg_tab.to_json()
+
+	elif (level == 3) & (show_level == 4):
+		##Для ГП/СП в районе
+		#Вычисляем id региона
+		region_id = r.json()['parent']['id']
+		#Получаем список territory_id ГП/СП региона, находящихся в данном районе
+		URL = terr_api + f"/api/v1/all_territories_without_geometry?parent_id={parent_id}&get_all_levels=false&cities_only=false&ordering=asc"
+		r = requests.get(url = URL)
+		settlements = r.json()
+		for i in range(len(settlements)):
+			settlements[i] = settlements[i]['territory_id']
+		#загружаем таблицу поселений региона
+		reg_df = pd.read_csv(f'{file_path}df_{region_id}_{show_level}.csv', sep = ';', index_col = 0)
+
+		##переводим таблицу индикаторов региона в таблицу значений "клеточек" для региона
+		#для этого загрузим таблицу коэффициентов
+		grid_coeffs = pd.read_json(f'{file_path}grid_coeffs.json').reindex(['dev', 'soc', 'bas'])
+		reg_tab = reg_df_to_tab(reg_df, grid_coeffs)
+
+		#нормализуем полученные значения по региону
+		reg_tab = recount_data_for_reg(reg_tab)
+
+		#оставим только ГП/СП данного района
+		reg_tab = reg_tab[reg_tab.index.isin(settlements)]
+		reg_tab = reg_tab.sort_index()
+
+		#теперь выдаём это, как json, и всё
 		return reg_tab.to_json()
 	pass
