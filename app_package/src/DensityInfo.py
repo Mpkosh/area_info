@@ -50,13 +50,13 @@ def clip_all_children(all_children, p_id=34):
     
     # для ЛенОбласти будет непустое
     gpsp_with_parent = a[(a.level==4)&(a['parent.id']!=int(p_id))][['territory_id','name',
-                                                               'level','parent.id','parent.name']]
+                                                           'level','parent.id','parent.name']]
 
     if gpsp_with_parent.shape[0]:
         buff = gpsp_with_kids[['centre_point']].merge(gpsp_with_parent,
-                                                      left_index=True, 
-                                                      right_on='name'
-                                                      ).dissolve(by='parent.name')
+                                      left_index=True, 
+                                      right_on='territory_id'
+                                      ).dissolve(by='parent.id')
     else:
         buff = gpsp_with_kids
     '''
