@@ -108,6 +108,30 @@ def reg_df_to_tab(reg_df: pd.DataFrame, grid_coeffs: pd.DataFrame) -> pd.DataFra
 		reg_tab[loc] = tab_to_ser(loc_counts(row, grid_coeffs))
 	return reg_tab.T
 
+def reg_df_to_tab_updated(reg_df: pd.DataFrame, grid_coeffs: pd.DataFrame) -> pd.DataFrame:
+	"""
+	Подсчитывает удовлетворённость жителей всех муниципальных районов определённого региона по различным уровням ценностей, связанных с
+	различными идентичностями, исходя из переданных соцэкономпоказателей всех районов данного региона. Показатели распределены по таблице
+	"ценностей/идентичностей" и имеют коэффициенты. Это распределение и коэффициенты должны быть переданы в аттрибут grid_coeffs
+
+	Возвращает датафрейм, в котором у каждого муниципального района региона есть своя строка, а в столбцы вписаны значения для всех
+	клеток таблицы "ценностей/идентичностей"
+
+	:param pd.DataFrame reg_df: датафрейм со значениями соцэконом индикаторов для каждого района региона
+	:param pd.DataFrame grid_coeffs: Таблица с коэффициентами для различных индикаторов каждой клетки
+	"""
+
+	muni1 = reg_df.index.min()
+	reg_tab = pd.DataFrame(data = np.zeros((reg_df.shape[0], 15)), index = reg_df.index)
+	print(reg_tab)
+	return 0
+	reg_tab.apply()
+	for loc, row in reg_df.iterrows():
+		if loc == muni1:
+			continue
+		reg_tab[loc] = tab_to_ser(loc_counts(row, grid_coeffs))
+	return reg_tab.T
+
 def ser_to_tab(sr: pd.Series, grid_coeffs: pd.DataFrame) -> pd.DataFrame:
 	"""
 	Переводит показатели удовлетворённости жителей определённой локации по различным уровням ценностей, связанных с различными
@@ -233,7 +257,7 @@ def muni_tab(territory_id: int, feature_changed = False, changes_dict = "") -> j
 
 		##переводим таблицу индикаторов региона в таблицу значений "клеточек" для региона
 		#для этого загрузим таблицу коэффициентов
-		grid_coeffs = pd.read_json(f'{file_path}grid_coeffs.json').reindex(['dev', 'soc', 'bas'])
+		grid_coeffs = pd.read_json(f'{file_path}grid_coeffs_4.json').reindex(['dev', 'soc', 'bas'])
 		reg_tab = reg_df_to_tab(reg_df, grid_coeffs)
 
 		#нормализуем полученные значения по региону
@@ -314,7 +338,7 @@ def ch_muni_tab(parent_id: int, show_level: int) -> json:
 
 		##переводим таблицу индикаторов региона в таблицу значений "клеточек" для региона
 		#для этого загрузим таблицу коэффициентов
-		grid_coeffs = pd.read_json(f'{file_path}grid_coeffs.json').reindex(['dev', 'soc', 'bas'])
+		grid_coeffs = pd.read_json(f'{file_path}grid_coeffs_4.json').reindex(['dev', 'soc', 'bas'])
 		reg_tab = reg_df_to_tab(reg_df, grid_coeffs)
 
 		#нормализуем полученные значения по региону
@@ -338,7 +362,7 @@ def ch_muni_tab(parent_id: int, show_level: int) -> json:
 
 		##переводим таблицу индикаторов региона в таблицу значений "клеточек" для региона
 		#для этого загрузим таблицу коэффициентов
-		grid_coeffs = pd.read_json(f'{file_path}grid_coeffs.json').reindex(['dev', 'soc', 'bas'])
+		grid_coeffs = pd.read_json(f'{file_path}grid_coeffs_4.json').reindex(['dev', 'soc', 'bas'])
 		reg_tab = reg_df_to_tab(reg_df, grid_coeffs)
 
 		#нормализуем полученные значения по региону
