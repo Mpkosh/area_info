@@ -32,6 +32,7 @@ def age_groups(df, n_in_age_group=5):
                                                                       n_in_age_group)]
             # добавляем возраста, чтобы было ровно до 100 лет
             last_age = int(groups[-1].split('-')[-1])
+
             if 100 - last_age > 1:
                 groups += [f'{last_age+1}-100']
             else:
@@ -42,22 +43,27 @@ def age_groups(df, n_in_age_group=5):
 
         result = []
         indexes = []
+        df.index = df.index.astype(int)
         for age_group in groups:
             # если задан интервал    
             if '-' in str(age_group):
                 # если интервала нет в изначальных данных
+ 
                 if age_group not in df.index:
+                    
                     # раскрываем интервал
                     age_brackets = [int(i) for i in age_group.split('-')]
                     # суммируем все значения по каждому возрасту
                     new = df[(df.index.isin([ i for i in range(age_brackets[0],
                                                                     age_brackets[1]+1) ]))]
+                    
                     new = new.sum()
                 else:
                     new = df[df.index==age_group].squeeze(axis=0)
             else:
                 # если возраст есть в изначальных данных
                 if int(age_group) in df.index:
+                    print('here', age_group)
                     new = df[df.index==int(age_group)].squeeze(axis=0)
                 # else:
                     # print(f'Возраст {age_group} в данных нет.')

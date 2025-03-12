@@ -61,27 +61,43 @@ def is_it_true(value):
 @bp_api.route('/regions/pyramid_data', methods=['GET'])
 @cross_origin()
 def pyramid_data():
+    forecast_until = request.args.get('forecast_until', type = int, default=0)
+    
     given_year = request.args.get('given_year', type = int, default=2020)
     territory_id = request.args.get('territory_id', type = int, default=34)
     n_age_groups = request.args.get('n_age_groups', type = int, default=5)
+    unpack_after_70 = request.args.get('unpack_after_70', type = is_it_true, default=False)
     
     session = requests.Session()
     df = PopInfoForAPI.get_detailed_pop(session, territory_id, 
-                                                   unpack_after_70=True, last_year=False, 
-                                                   specific_year=0)
+                                        unpack_after_70=unpack_after_70, last_year=False, 
+                                        specific_year=0)
+ 
     last_pop_year = df.columns.levels[0][-1]
+
     # если нужен год больше текущего -- делаем прогноз
-    if given_year > last_pop_year:
-        folders={'popdir':file_dir,
-             'file_name':'Ленинградская область.xlsx'}
-        df = DemForecast.MakeForecast(df, last_pop_year, 
-                                            given_year - last_pop_year, folders)
-        
-    # выбираем нужный интервал возрастов
-    age_groups_df = PopulationInfo.age_groups(df[given_year], n_in_age_group=n_age_groups)
-    
+    if forecast_until>0:
+        if forecast_until > last_pop_year:
+            folders={'popdir':file_dir,
+                 'file_name':'Ленинградская область.xlsx'}
+            forecast_df = DemForecast.MakeForecast(df, last_pop_year, 
+                                                forecast_until - last_pop_year, folders)
+        # отрезаем от прогноза первый год (== поданному на вход последнему году)
+        df = pd.concat([df, forecast_df.iloc[:, 2:]], axis=1)
+        # выбираем нужный интервал возрастов
+        age_groups_df = PopulationInfo.age_groups(df, n_in_age_group=n_age_groups)
+
+    else:
+        if forecast_until > last_pop_year:
+            folders={'popdir':file_dir,
+                 'file_name':'Ленинградская область.xlsx'}
+            df = DemForecast.MakeForecast(df, last_pop_year, 
+                                                given_year - last_pop_year, folders)
+        # выбираем нужный интервал возрастов
+        age_groups_df = PopulationInfo.age_groups(df[given_year], n_in_age_group=n_age_groups)
+
     # чтобы мужчины были слева графика
-    age_groups_df['Мужчины'] *= -1
+    age_groups_df.iloc[:,::2] *= -1
     age_groups_df.index = age_groups_df.index.astype(str)
     
     return Response(age_groups_df.to_json(orient="split"), 

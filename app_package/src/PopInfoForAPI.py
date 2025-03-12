@@ -29,14 +29,23 @@ def prepro_from_api(df_from_json, given_years=[2019,2020], unpack_after_70=False
     df_list = []
     for year in given_years:
         df = pd.json_normalize(df_all[df_all['year']==year]['data'].explode())
-
-        # всякий случай задаем возраста: 
-        # 1) все с интервалом 1 год; 2) 100+; 3) с интервалом 4 года для старших
-        df = df[(df['age_start']==df['age_end'])|(
-                df['age_start']==100)|(
-                (df['age_end']-df['age_start']==4)&(
-                    df['age_end'].isin([74,79,84,89,94,99])))]
+        
+        # 101 если раскрыты возраста
+        if df.shape[0] > 99:
+            unpack_after_70 = False
+            df = df[(df['age_start']==df['age_end'])|(
+                    (df['age_start']==100)&(df['age_start']==101))]
+        else:
+            unpack_after_70 = True
+            # всякий случай задаем возраста: 
+            # 1) все с интервалом 1 год; 2) 100+; 3) с интервалом 4 года для старших
+            df = df[(df['age_start']==df['age_end'])|(
+                    df['age_start']==100)|(
+                    (df['age_end']-df['age_start']==4)&(
+                        df['age_end'].isin([74,79,84,89,94,99])))]
+                        
         df['группа'] = df.iloc[:,:2].apply(to_interval, 1)
+
         df = df.set_index('группа').iloc[:,2:]
 
         # ставим года
@@ -57,7 +66,7 @@ def prepro_from_api(df_from_json, given_years=[2019,2020], unpack_after_70=False
         #df.index = df.index.astype(str)
     else:    
         df.index = df.index.astype(str)
-
+    print('in func.', df.tail())
     return df
 
 
@@ -367,7 +376,7 @@ def last_pop_and_dnst(session, current_territory, dnst=False, both=False):
         current_territory.pop_all = pop_value
         
         
-def get_detailed_pop(session, territory_id, unpack_after_70, last_year=True, specific_year=0):
+def get_detailed_pop(session, territory_id, unpack_after_70=True, last_year=True, specific_year=0):
     url = social_api + f'indicators/2/{territory_id}/detailed'
     r = session.get(url)
     if r.status_code == 200:
@@ -378,6 +387,7 @@ def get_detailed_pop(session, territory_id, unpack_after_70, last_year=True, spe
             given_years = [df_from_json['year'].max()]
         else:
             given_years = df_from_json.year.sort_values().values
+
         df = prepro_from_api(df_from_json, 
                              given_years = given_years, 
                              unpack_after_70=unpack_after_70)
