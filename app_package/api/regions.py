@@ -82,6 +82,8 @@ def pyramid_data():
                  'file_name':'Ленинградская область.xlsx'}
             forecast_df = DemForecast.MakeForecast(df, last_pop_year, 
                                                 forecast_until - last_pop_year, folders)
+        else:
+            forecast_df = pd.DataFrame()
         # отрезаем от прогноза первый год (== поданному на вход последнему году)
         df = pd.concat([df, forecast_df.iloc[:, 2:]], axis=1)
         # выбираем нужный интервал возрастов
