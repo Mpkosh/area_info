@@ -32,9 +32,10 @@ def prepro_from_api(df_from_json, given_years=[2019,2020], unpack_after_70=False
         
         # 101 если раскрыты возраста
         if df.shape[0] > 99:
+            
             unpack_after_70 = False
             df = df[(df['age_start']==df['age_end'])|(
-                    (df['age_start']==100)&(df['age_start']==101))]
+                    (df['age_start']==100)&(df['age_end']==101))]
         else:
             unpack_after_70 = True
             # всякий случай задаем возраста: 
@@ -66,7 +67,6 @@ def prepro_from_api(df_from_json, given_years=[2019,2020], unpack_after_70=False
         #df.index = df.index.astype(str)
     else:    
         df.index = df.index.astype(str)
-    print('in func.', df.tail())
     return df
 
 

@@ -74,7 +74,7 @@ def pyramid_data():
                                         specific_year=0)
  
     last_pop_year = df.columns.levels[0][-1]
-
+    df.index = df.index.astype(int)
     # если нужен год больше текущего -- делаем прогноз
     if forecast_until>0:
         if forecast_until > last_pop_year:
@@ -88,7 +88,7 @@ def pyramid_data():
         age_groups_df = PopulationInfo.age_groups(df, n_in_age_group=n_age_groups)
 
     else:
-        if forecast_until > last_pop_year:
+        if given_year > last_pop_year:
             folders={'popdir':file_dir,
                  'file_name':'Ленинградская область.xlsx'}
             df = DemForecast.MakeForecast(df, last_pop_year, 

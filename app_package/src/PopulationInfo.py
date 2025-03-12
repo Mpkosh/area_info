@@ -63,7 +63,6 @@ def age_groups(df, n_in_age_group=5):
             else:
                 # если возраст есть в изначальных данных
                 if int(age_group) in df.index:
-                    print('here', age_group)
                     new = df[df.index==int(age_group)].squeeze(axis=0)
                 # else:
                     # print(f'Возраст {age_group} в данных нет.')
