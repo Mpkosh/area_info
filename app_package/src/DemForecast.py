@@ -5,7 +5,7 @@ by A.N.
 import pandas as pd
 import numpy as np
 #import matplotlib.pyplot as plt
-from app_package.src import PreproDF
+#from app_package.src import PreproDF
 from app_package.src.AuxFilePrepro import get_mor_rate
 
 
@@ -18,13 +18,13 @@ def GetMigSaldo(df, folders):
     years = list(set(i[0] for i in df.columns))
     years.sort()
     
-    print('YEARS__', years)
+
     for i in range(1,len(years)):
         delta = df[years[i]] - (df[years[i-1]] * mr[['Женщины','Мужчины']].values).shift(1)  
         delta.iloc[0] = [0,0]
         saldo[[(years[i], 'Женщины'),(years[i], 'Мужчины')]] = delta.round().astype(int)
         
-    print('SALDO______', saldo.head())    
+
     saldo.set_index('группа', inplace=True, drop=True)
     saldo.columns=pd.MultiIndex.from_tuples(saldo.columns)
     
@@ -53,8 +53,7 @@ def MakeForecast(df, year0, horizon, folders):
         #Сдвиг пирамиды
         future=forecast.loc[:,year0+i-1:year0+i-1
                             ].shift(1).rename(columns={year0+i-1:year0+i})
-        print(forecast.index)
-        print(future.head(2))
+
         
         #Рождения
         neonatal=(future.loc[br['группа'],(year0+i,'Женщины')]*br['рождаемость'].values

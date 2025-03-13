@@ -223,41 +223,68 @@ def density_data_full():
 @bp_api.route('/regions/area_needs', methods=['GET'])
 @cross_origin()
 def area_needs():
-    territory_id = request.args.get('territory_id', type = int, default=34)
+    forecast_until = request.args.get('forecast_until', type = int, default=0)
     given_year = request.args.get('given_year', type = int, default=2020)
+    territory_id = request.args.get('territory_id', type = int, default=34)
     
     session = requests.Session()
     df = PopInfoForAPI.get_detailed_pop(session, territory_id, 
-                                        unpack_after_70=True, last_year=False, 
+                                        last_year=False, 
                                         specific_year=0)
+ 
     last_pop_year = df.columns.levels[0][-1]
+    n_age_groups = 1
+    df.index = df.index.astype(int)
     # если нужен год больше текущего -- делаем прогноз
-    if given_year > last_pop_year:
-        folders={'popdir':file_dir,
-             'file_name':'Ленинградская область.xlsx'}
-        df = DemForecast.MakeForecast(df, last_pop_year, 
-                                            given_year - last_pop_year, folders)
-        
-    # интервал возрастов == 1
-    
+    if forecast_until>0:
+        if forecast_until > last_pop_year:
+            folders={'popdir':file_dir,
+                 'file_name':'Ленинградская область.xlsx'}
+            forecast_df = DemForecast.MakeForecast(df, last_pop_year, 
+                                                forecast_until - last_pop_year, folders)
+        else:
+            forecast_df = pd.DataFrame()
+        # отрезаем от прогноза первый год (== поданному на вход последнему году)
+        df = pd.concat([df, forecast_df.iloc[:, 2:]], axis=1)
+
+    else:
+        if given_year > last_pop_year:
+            folders={'popdir':file_dir,
+                 'file_name':'Ленинградская область.xlsx'}
+            df = DemForecast.MakeForecast(df, last_pop_year, 
+                                                given_year - last_pop_year, folders)
+    # выбираем нужный интервал возрастов
+    age_groups_df = PopulationInfo.age_groups(df, n_in_age_group=n_age_groups)
+    if forecast_until>0:
+        years = age_groups_df.columns.levels[0]
+    else:
+        years = [given_year]
+
     # потребности
     df_needs = pd.read_csv(file_dir+'pop_needs.csv', index_col=0)
     needs = df_needs.columns[1:]
     age_groups = df_needs['Возраст']
     values = df_needs.iloc[:,1:].values
+    
+    fin = pd.DataFrame([])
+    for year in years:
+        # высчитываем от каждой возрастной группы
+        all_values = np.array([0.,0.,0.,0.,0.,0.,0.,0.])
+        k_temp = age_groups_df[year]
+        all_count = k_temp.sum().sum()
+        for age_group, value in zip(age_groups[::-1], values[::-1]):
+            start = int(age_group.split('-')[0])
+            finish = int(age_group.split('-')[1])
+            percent = k_temp.loc[start:finish].abs().sum().sum() / all_count
+            all_values += np.array(value) * percent
 
-    # высчитываем от каждой возрастной группы
-    all_values = np.array([0.,0.,0.,0.,0.,0.,0.,0.])
-    k_temp = df[given_year]
-    all_count = k_temp.sum().sum()
-    for age_group, value in zip(age_groups[::-1], values[::-1]):
-        start = int(age_group.split('-')[0])
-        finish = int(age_group.split('-')[1])
-        percent = k_temp.loc[start:finish].abs().sum().sum() / all_count
-        all_values += np.array(value) * percent
+        fc = pd.DataFrame([all_values], columns=needs)
+        fc = fc / fc.sum(1)[0]
+        fc.index = [year]
+        
+        fin = pd.concat([fin, fc])
 
-    fc = pd.DataFrame([all_values], columns=needs)
-    return Response(fc.apply(lambda x: x/fc.sum(1)).to_json(orient="split"), 
+    return Response(fin.to_json(orient="split"), 
                     mimetype='application/json')
 
 
