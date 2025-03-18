@@ -248,9 +248,11 @@ def info(territory_id, show_level=0, detailed=False,
     
 
 def main_factors(session, fin_df):
-    sdf = pd.read_csv(file_path+'superdataset (full data).csv')
+    sdf = pd.read_csv(file_path+'superdataset_iqr.csv')
     sdf['oktmo'] = sdf['oktmo'].astype(str)
-    sdf = sdf[(sdf.year==sdf.year.max())&(sdf.oktmo.isin(fin_df['oktmo']))]
+    print(fin_df['oktmo'])
+    max_year = np.min([sdf.year.max(), 2022])
+    sdf = sdf[(sdf.year==max_year)&(sdf.oktmo.isin(fin_df['oktmo']))]
     sdf = sdf.sort_values(by='year').drop(['name','year', 'saldo'],
                    axis='columns').reset_index(drop=True)
     fin_df = fin_df.merge(sdf, on='oktmo', how='left')
@@ -439,7 +441,7 @@ def detailed_migration(session, current_territory, fin_df):
     
     
 def detailed_factors(session, current_territory, fin_df):
-    sdf = pd.read_csv(file_path+'superdataset (full data).csv')
+    sdf = pd.read_csv(file_path+'superdataset_iqr.csv')
     sdf['oktmo'] = sdf['oktmo'].astype(str)
 
     oktmo = current_territory.oktmo
