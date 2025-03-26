@@ -345,6 +345,21 @@ def ch_values_identities():
     return Response(result, mimetype='application/json')
 
 
+@bp_api.route('/regions/val_ident_recommend', methods=['GET'])
+@cross_origin()
+def val_ident_recommend():
+    territory_id = request.args.get('territory_id', type = int, default = 34)
+    r = ValIdentityMatrix.muni_tab(territory_id)
+    result = ValIdentityMatrix.smart_cell_recommend(r)
+    return Response(result, mimetype='application/json')
+
+@bp_api.route('/regions/cell_recommend', methods=['GET'])
+@cross_origin()
+def val_ident_recommend():
+    territory_id = request.args.get('territory_id', type = int, default = 34)
+    result = ValIdentityMatrix.cell_recommend(territory_id)
+    return Response(result, mimetype='application/json')
+
 
 #____________ OFFICIAL F21
 

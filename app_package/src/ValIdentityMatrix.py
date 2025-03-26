@@ -12,6 +12,8 @@ import requests
 
 #для работы с json-файлами
 import json
+#для работы с json-файлами. Требование пандаса
+from io import StringIO
 
 terr_api = os.environ.get('TERRITORY_API')
 file_path = 'app_package/src/for_val_ident/'
@@ -375,3 +377,28 @@ def ch_muni_tab(parent_id: int, show_level: int) -> json:
 		#теперь выдаём это, как json, и всё
 		return reg_tab.to_json()
 	pass
+
+"""РАЗДЕЛ РЕКОМЕНДАЦИЙ"""
+
+def determine_bad(val_ident_ser):
+	#костыль, чтобы работало с null'ами
+	to_leave = val_ident_ser.iloc[2:]
+
+	to_leave = to_leave.apply(lambda x: True if x[2] < 0 else False)
+	to_leave = to_leave[to_leave].index
+	return val_ident_ser[to_leave]
+
+#Функция для рекомендациям по клеточкам
+def smart_cell_recommend(val_ident_matrix):
+	#Выдаёт 12 главных улучшений факторов, чтобы клеточки стали зеленее
+
+	#Делаем из json'а таблицу
+	val_ident_matrix = pd.read_json(StringIO(val_ident_matrix)).reindex(['dev', 'soc', 'bas'])
+	#Переводим таблицу в Series
+	val_ident_ser = tab_to_ser(val_ident_matrix)
+	return determine_bad(val_ident_ser).to_json()
+
+"""подраздел рекомендаций по факторам"""
+
+def feature_recommend(territory_id):
+	
