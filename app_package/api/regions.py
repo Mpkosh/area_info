@@ -353,11 +353,11 @@ def val_ident_recommend():
     result = ValIdentityMatrix.smart_cell_recommend(r)
     return Response(result, mimetype='application/json')
 
-@bp_api.route('/regions/cell_recommend', methods=['GET'])
+@bp_api.route('/regions/factor_recommend', methods=['GET'])
 @cross_origin()
-def val_ident_recommend():
+def factor_recommend():
     territory_id = request.args.get('territory_id', type = int, default = 34)
-    result = ValIdentityMatrix.cell_recommend(territory_id)
+    result = ValIdentityMatrix.factor_recommend(territory_id)
     return Response(result, mimetype='application/json')
 
 
