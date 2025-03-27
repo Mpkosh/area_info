@@ -135,6 +135,32 @@
         }
       }
     },
+    "/regions/factor_recommend": {
+      "get": {
+        "tags": [
+          "Module 11"
+        ],
+        "summary": "Get recommendations on factor improvements",
+        "description": "## Get top-12 recommendations on factor improvements for a territory as a JSON.<br>\n**NOTE**: This request works for now only for districts (level = 3) throughout Russia and for urban/rural settlements (level = 4) of Leningrad region.\n\n\n **Parameters:**<br>\n\n* **territory_id** (int, Query): Unique identifier of the territory.\n\n**Returns:**<br>\n* **JSONResponse[[Factor_to_improve: Improvement_percent],...]:** A JSON response containing factor names and percentages of improvement needed for these factors to improve the satisfaction levels of the residents.\n\n**Notes:**<br>\n* The set of factors to improve is always different for different territories.\n* For factors with negative effects (badcompanies, badhousesdwellers, pollutionvol) the given percentages demonstrate the need for their diminuition.\n* There's a ceiling for improvement percentage: it does not exceed 100.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/territory_id_2"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/factor_recommendations_200"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/migrations/main_info": {
       "get": {
         "tags": [
@@ -772,6 +798,16 @@
       "territory_id": {
         "name": "territory_id",
         "default": 34,
+        "in": "query",
+        "description": "Territory id.",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "territory_id_2": {
+        "name": "territory_id",
+        "default": 104,
         "in": "query",
         "description": "Territory id.",
         "required": true,
@@ -1873,6 +1909,60 @@
                 "example": 0.86
               }
             }
+          }
+        }
+      },
+      "factor_recommendations_200": {
+        "title": "Sample",
+        "type": "object",
+        "properties": {
+          "hospitals": {
+            "type": "number",
+            "example": 100
+          },
+          "pollutcapturedperc": {
+            "type": "number",
+            "example": 100
+          },
+          "socialaid": {
+            "type": "number",
+            "example": 100
+          },
+          "schoolnum": {
+            "type": "number",
+            "example": 94.56
+          },
+          "sportsvenue": {
+            "type": "number",
+            "example": 73.06
+          },
+          "hospitalcap": {
+            "type": "number",
+            "example": 54.94
+          },
+          "library": {
+            "type": "number",
+            "example": 34.9
+          },
+          "cliniccap": {
+            "type": "number",
+            "example": 25.22
+          },
+          "pollutionvol": {
+            "type": "number",
+            "example": 22.26
+          },
+          "beforeschool": {
+            "type": "number",
+            "example": 20.59
+          },
+          "badhousesdwellers": {
+            "type": "number",
+            "example": 20.33
+          },
+          "budincome": {
+            "type": "number",
+            "example": 14.4
           }
         }
       },
