@@ -37,7 +37,7 @@ def prepro_from_api(df_from_json, given_years=[2019,2020], unpack_after_70=False
                 
                 unpack_after_70 = False
                 df = df[(df['age_start']==df['age_end'])|(
-                        (df['age_start']==100)&(df['age_end']==101))]
+                        (df['age_start']==100))]
             else:
                 unpack_after_70 = True
                 # всякий случай задаем возраста: 
