@@ -12,7 +12,7 @@ from app_package.src import PreproDF, PopulationInfo, \
                             AreaOnMapFile, DensityInfo, \
                             PopInfoForAPI, MigInfoForAPI, \
                             ValIdentityMatrix, MigForecast, \
-                            DemForecast, ClusterInfo
+                            DemForecast, ClusterInfo, SocProfile
 
 import pandas as pd
 import geopandas as gpd
@@ -324,6 +324,21 @@ def detailed_info():
     return [pop_df.to_json(), groups_df.to_json(), dynamic_pop_df.to_json(),
             soc_pyramid_df.to_json(), values_df.to_json()]
 
+
+@bp_api.route('/regions/social_profiles', methods=['GET'])
+@cross_origin()
+def social_profiles():
+    territory_id = request.args.get('territory_id', type = int, default=34)
+    given_year = request.args.get('given_year', type = int, default=2020)
+    forecast_until = request.args.get('forecast_until', type = int, default=0)
+    
+    res = SocProfile.get_profiles(territory_id, forecast_until, 
+                                  given_year)
+    
+    return [r.to_json() for r in res]
+
+
+# _____ values identites
 
 @bp_api.route('/regions/values_identities', methods=['GET'])
 @cross_origin()

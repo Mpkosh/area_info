@@ -28,32 +28,34 @@ def prepro_from_api(df_from_json, given_years=[2019,2020], unpack_after_70=False
 
     df_list = []
     for year in given_years:
-        df = pd.json_normalize(df_all[df_all['year']==year]['data'].explode())
-        
-        # 101 если раскрыты возраста
-        if df.shape[0] > 99:
+        # отсеиваем случайные данные
+        if (year != 0) and (year!=2024):
+            df = pd.json_normalize(df_all[df_all['year']==year]['data'].explode())
             
-            unpack_after_70 = False
-            df = df[(df['age_start']==df['age_end'])|(
-                    (df['age_start']==100)&(df['age_end']==101))]
-        else:
-            unpack_after_70 = True
-            # всякий случай задаем возраста: 
-            # 1) все с интервалом 1 год; 2) 100+; 3) с интервалом 4 года для старших
-            df = df[(df['age_start']==df['age_end'])|(
-                    df['age_start']==100)|(
-                    (df['age_end']-df['age_start']==4)&(
-                        df['age_end'].isin([74,79,84,89,94,99])))]
-                        
-        df['группа'] = df.iloc[:,:2].apply(to_interval, 1)
-
-        df = df.set_index('группа').iloc[:,2:]
-
-        # ставим года
-        df.columns = pd.MultiIndex.from_product([[year], ['Мужчины', 'Женщины']])
-        df.columns.set_names(['', "пол"], level=[0,1], inplace=True)
-        df.bfill(inplace=True)
-        df_list.append(df)
+            # 101 если раскрыты возраста
+            if df.shape[0] > 99:
+                
+                unpack_after_70 = False
+                df = df[(df['age_start']==df['age_end'])|(
+                        (df['age_start']==100)&(df['age_end']==101))]
+            else:
+                unpack_after_70 = True
+                # всякий случай задаем возраста: 
+                # 1) все с интервалом 1 год; 2) 100+; 3) с интервалом 4 года для старших
+                df = df[(df['age_start']==df['age_end'])|(
+                        df['age_start']==100)|(
+                        (df['age_end']-df['age_start']==4)&(
+                            df['age_end'].isin([74,79,84,89,94,99])))]
+                            
+            df['группа'] = df.iloc[:,:2].apply(to_interval, 1)
+    
+            df = df.set_index('группа').iloc[:,2:]
+    
+            # ставим года
+            df.columns = pd.MultiIndex.from_product([[year], ['Мужчины', 'Женщины']])
+            df.columns.set_names(['', "пол"], level=[0,1], inplace=True)
+            df.bfill(inplace=True)
+            df_list.append(df)
 
     df = pd.concat(df_list, axis='columns')
     
