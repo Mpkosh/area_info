@@ -74,6 +74,38 @@
         }
       }
     },
+    "/regions/social_profiles": {
+      "get": {
+        "tags": [
+          "Module 11"
+        ],
+        "summary": "Territory social profiles",
+        "description": "## Get information for 23 social profiles.\n**NOTE 1:** Given territory should have a territory type 1 or 2.\n\n**NOTE 2:** Give forecast_until=0 and given_year=X to get information for one year .\n\n**Parameters**:\n* **territory_id** (int, Query): Unique identifier of the territory.\n* **given_year** (int, Query): Show data for a given year.\n* **forecast_until** (int, Query): Final year of forecast.\n\n**Returns**: \n* **Flattened(!) Array [JSONResponse]**: \n  * Younger:\n    * ages 0-2\n    * ages 3-6\n    * ages 7-13\n    * ages 14-15\n  * Able-bodied:\n    * ages 16-17\n    * ages 18-35\n    * ages 35-59\n  * Older:\n    * ages 60-75\n    * ages 75-101\n  * Citizens with children:\n    * pregnant women\n    * citizens with newborns\n    * citizens with kids aged 1-3\n    * citizens with kids aged 4-6\n    * citizens with kids aged 7-11\n    * citizens with kids aged 12-17\n  * Others:\n    * students\n    * Christians\n    * Muslims\n    * Buddhists\n    * Jews\n    * Atheists\n    * people with disabilities\n  \n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/territory_id"
+          },
+          {
+            "$ref": "#/components/parameters/given_year"
+          },
+          {
+            "$ref": "#/components/parameters/forecast_until0"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/social_profiles_200"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/regions/values_identities": {
       "get": {
         "tags": [
@@ -825,6 +857,16 @@
           "type": "integer"
         }
       },
+      "forecast_until0": {
+        "name": "forecast_until",
+        "default": 0,
+        "in": "query",
+        "description": "Last year of forecast.",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      },
       "last_only": {
         "name": "last_only",
         "in": "query",
@@ -1331,6 +1373,33 @@
             "coeff_migration": {
               "type": "number",
               "example": 0
+            }
+          }
+        }
+      },
+      "social_profiles_200": {
+        "title": "Sample",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "age_sex_pyramid_0-2": {
+              "type": "object",
+              "example": [
+                "..."
+              ]
+            },
+            "age_sex_pyramid_3-6": {
+              "type": "object",
+              "example": [
+                "..."
+              ]
+            },
+            "age_sex_pyramid_7-13": {
+              "type": "object",
+              "example": [
+                "..."
+              ]
             }
           }
         }
