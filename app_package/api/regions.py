@@ -335,7 +335,7 @@ def social_profiles():
     res = SocProfile.get_profiles(territory_id, forecast_until, 
                                   given_year)
     
-    return [r.to_json() for r in res]
+    return [r.to_json(orient="split") for r in res]
 
 
 # _____ values identites
