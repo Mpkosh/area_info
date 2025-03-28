@@ -413,7 +413,7 @@ def detailed_migr():
     with_mig_dest = request.args.get('mig_destinations', type = is_it_true, default=False)
     md_year = request.args.get('given_year', type = int, default=2022)
     from_file = request.args.get('from_file', type = is_it_true, default=True)
-    mig_other_regions = request.args.get('mig_other_regions', type = is_it_true, default=True)
+    mig_other_regions = request.args.get('mig_other_regions', type = is_it_true, default=False)
 
     result = MigInfoForAPI.info(territory_id=territory_id, 
                                 detailed=True, 
