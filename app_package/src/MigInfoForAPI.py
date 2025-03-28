@@ -550,20 +550,21 @@ def mig_dest_prepared(show_level, fin_df, siblings,
                                     ).drop(columns=['territory_id_y'])
         
         
-        result = graph_lo_2level(yeartab, md_year)
+        result = create_graph(yeartab, md_year)
         
     else:
         df_with_geom = pd.read_csv(file_path+'lo_3_parents.csv', 
                                    index_col=0)
         if show_level > 2:
             # result = pd.read_csv(file_path+f'graph_LO_{show_level}level_{md_year}.csv',index_col=0)
-            res = pd.read_csv(file_path + 'graph_LO_3level_19-22.csv', index_col=0)
+            res = pd.read_csv(file_path + 'graph_LO_3_no_spb_19-22.csv', index_col=0)
             result = res[res.year==md_year].drop(columns=['year']) # для /main_info/ всегда посл.год
 
         else:
-            pre_result = pd.read_csv(file_path+'for_graph_LO_2level.csv',
+            pre_result = pd.read_csv(file_path+'for_graph_LO_2_no_spb.csv',
                                      index_col=0)
-            result = graph_lo_2level(pre_result, md_year)
+            
+            result = create_graph(pre_result, md_year)
             
     # линии только из заданных территорий
     uniq_ids = fin_df.territory_id.unique()
@@ -638,7 +639,7 @@ def mig_dest_prepared(show_level, fin_df, siblings,
 
 
 
-def graph_lo_2level(pre_result, md_year):
+def create_graph(pre_result, md_year):
     yeartab = pre_result[pre_result.year==md_year].copy()
 
     yeartab['nInt_in'] = yeartab['Int_in']/yeartab['Int_in'].sum()
