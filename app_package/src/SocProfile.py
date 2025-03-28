@@ -16,7 +16,6 @@ file_dir = 'app_package/src/population_data/'
 
 def get_predictions(df, forecast_until, given_year):
     last_pop_year = df.columns.levels[0][-1]
-    n_age_groups = 1
     df.index = df.index.astype(int)
     # если нужен год больше текущего -- делаем прогноз
     if forecast_until>0:
@@ -51,8 +50,9 @@ def get_profiles(territory_id, forecast_until=0, given_year=2023):
     
     pop_df = get_predictions(pop_df, forecast_until, given_year)
     # ____ Численность всех групп
-    soc_groups=['0-2','3-6','7-13','14-15','16-17',
-                '18-35','36-59','60-75','75-100']
+    soc_groups=['14-15',
+                '16-59', '16-17', '18-59',
+                '60-100', '60-75','75-100']
     soc_pyramid = []
 
     for age_group in soc_groups:
@@ -65,66 +65,36 @@ def get_profiles(territory_id, forecast_until=0, given_year=2023):
     citizens_with_kids = get_preg_and_with_kids(pop_df)
     citizens_by_religion = get_religions(pop_df)    
     citizens_students = get_students(pop_df) 
-    citizens_disabled = get_disabled(pop_df) 
+    #citizens_disabled = get_disabled(pop_df) 
+    citizens_with_pets = get_with_pets(pop_df) 
     
     return [*citizens_by_age_gr, *citizens_with_kids,
            *citizens_by_religion, citizens_students, 
-            citizens_disabled]
+            citizens_with_pets]
 
 
 def get_religions(pop_df):
-    names = ['Христиане','Мусульмане','Буддисты',
-                      'Иудеи/евреи', 'Атеисты','Другое']
-    
-    # процент верующих по годам и по религиям
-    religions = pd.read_csv(file_path+'religions_year.csv',index_col=0
-                           ).set_index('Вера')
-    # процент верующих по полу и возрастам
-    rel_by_sex_and_age = pd.read_csv(file_path+'rel_by_sex_and_age.csv', 
-                                     index_col=0, header=[0,1])
+    names = ['Христиане','Мусульмане','Иудеи','Буддисты']
+    # https://www.findeasy.in/population-of-russia/
+    percs = [0.474, 0.065, 0.01, 0.05]
 
-    sum_pop = pop_df.groupby(level=0, axis=1).sum().sum()
-    rel_year_n = pd.DataFrame([], columns = pop_df.columns.levels[0],
-                              index = names)
+    list_df_rels = []
+    for i,rel in enumerate(names):
+        pop_rel = pd.DataFrame(0, columns=pop_df.columns, index=pop_df.index)
 
-    fin_df = pd.DataFrame([],columns = pd.MultiIndex.from_product(
-                                            [pop_df.columns.levels[0],
-                                             names,
-                                             ['Мужчины','Женщины']]
-                                        ),
-                             index = np.arange(0,101))
+        for year in pop_df.columns.levels[0]:
+            for sex in ['Мужчины','Женщины']:
 
+                pop = pop_df.loc[:, (year, sex)].values
+                np.random.seed(27) 
+                q = np.random.multinomial(int(pop.sum()* percs[i]), 
+                                              pop[18:]/pop[18:].sum())
 
-    for year in pop_df.columns.levels[0]:
-        rel_by_sex_and_age_n = rel_by_sex_and_age.copy()
-        if f'{year}' in religions.columns:
-            rel_perc_year = religions[f'{year}']/100
-        else:
-            # если заданного года нет, то берем последний
-            rel_perc_year = religions.iloc[:,-1]/100
-        # Перед каждым вызовом multinomial! иначе буянит
-        np.random.seed(27) 
-        # Христиане, ... , Другое за 1 год.
-        rels_n = np.random.multinomial(sum_pop[year], rel_perc_year)
-        rel_year_n.loc[:,year]  = rels_n
+                pop_rel.loc[18:, (year,sex)] = q
+
+        list_df_rels.append(pop_rel)
         
-        # для каждой религии берем общую сумму и делим на возраста и полы
-        for i, rel in enumerate(names):
-            men_women_p = rel_by_sex_and_age[rel].values.flatten()
-            np.random.seed(27) 
-            men_women_n = np.random.multinomial(rels_n[i], men_women_p)
-            rel_by_sex_and_age_n.loc[:,(rel,"Мужчины")] = men_women_n[:83]
-            rel_by_sex_and_age_n.loc[:,(rel,"Женщины")] = men_women_n[83:]
-
-            fin_df.loc['18':,(year,rel,"Мужчины")] = men_women_n[:83]
-            fin_df.loc['18':,(year,rel,"Женщины")] = men_women_n[83:]
-    
-    fin_dfs_list = []
-    for rel in names:
-        fin_dfs_list.append( fin_df.loc[:,(slice(None),rel,slice(None))
-                                       ].droplevel(1, axis=1).fillna(0)
-                           )
-    return fin_dfs_list
+    return list_df_rels
 
 
 def get_preg_and_with_kids(pop_df):
@@ -133,18 +103,15 @@ def get_preg_and_with_kids(pop_df):
     n_years = len(pop_df.columns.levels[0])
     profiles = pd.read_csv(file_path+'profiles_spb19.csv')
     prof_clms = profiles.columns[profiles.columns.str.endswith('Беременные')]
-    profile = pd.concat([profiles[prof_clms]]*n_years, axis=1)
     # 1. беременные в числах
-    pregnant_n = profile * pop_df.iloc[:,1::2].values
-    pregnant_n.columns = pd.MultiIndex.from_product([pop_df.columns.levels[0],
-                                                ['Женщины']])
-    
+    pregnant_n = (pop_df*profiles[prof_clms].values)
     
     # доли одинаковые, тк изначально просто умножали на года
+    profile = pd.concat([profiles[prof_clms]]*n_years, axis=1)
     frac2prob = (profile / profile.sum()).iloc[:,0]
 
     # считаем общее кол-во детей по группам
-    kids_groups=['0-0','1-3','4-6','7-11','12-18']
+    kids_groups=['0-0','1-6','7-13','14-18']
     children = []
     for age_group in kids_groups:
         start = int(age_group.split('-')[0])
@@ -260,85 +227,18 @@ def get_students(pop_df):
     return studs_pyramid
 
     
-def get_disabled(pop_df):
-    dis_df_fraq = pd.read_csv(file_path+'disabled_fraq.csv',
-                              index_col=0, header=[0,1])
-    years = pop_df.columns.levels[0]
+def get_with_pets(pop_df):
+    # https://www.ipsos.ru/sites/default/files/ct/news/documents/2024-04/Всероссийская_перепись_животных.pdf
+    pets_age_fraq = pd.DataFrame(index=pop_df.index, columns=[0])
+    pets_age_fraq.loc[0:15,0] = 0
     
-    # дублируем год, если в реальной пирамиде больше данных
-    last_y_df = int(dis_df_fraq.columns.levels[0][-1])
-    diff_years = years[-1] - last_y_df
-    # если нужно меньше данных -- отрезаем
-    if diff_years<0:
-        for i in range(abs(diff_years)):
-            dis_df_fraq = dis_df_fraq.iloc[:,:-2]
-            
-    else:
-        for i in range(diff_years):
-            part = dis_df_fraq.iloc[:,-2:].copy()
-            part.columns = pd.MultiIndex.from_product([[f'{last_y_df+1}'],
-                                                       ['men','women']])
-            dis_df_fraq = pd.concat([dis_df_fraq, part], axis=1)
-            last_y_df+= 1
+    # среднее от кошек и собак
+    age_gs = ['16-24','25-34','35-44','45-54','55-64','65-100']
+    percs = [0.135,0.15,0.21,0.18,0.17,0.15]
+
+    for i, age_br in enumerate(age_gs):
+        start, finish = list(map(int, age_br.split('-')))
+        pets_age_fraq.loc[start:finish,0] = [percs[i]]*(finish-start+1)
     
-    # если в пирамиде позже начинаются данные
-    first_y_df = int(dis_df_fraq.columns.levels[0][0])
-    if years[0] > first_y_df:
-        dis_df_fraq = dis_df_fraq.loc[:,f'{years[0]:}':]
-    # если в пирамиде раньше начинаются данные, то дополянем
-    else:
-        diff_years = first_y_df - years[0]
-        for i in range(diff_years):
-            part = dis_df_fraq.iloc[:,:2].copy()
-            part.columns = pd.MultiIndex.from_product([[f'{first_y_df-1}'],
-                                                       ['men','women']])
-            dis_df_fraq = pd.concat([part, dis_df_fraq], axis=1)
-            first_y_df-= 1
-    
-    
-    
-    pop_dis = pd.DataFrame(0, columns=pop_df.columns, index=pop_df.index)
-    for age_br in dis_df_fraq.index:
-
-        for sex in ['men','women']:
-            df_age_str=''
-            if sex=='men':
-                sex_str = 'Мужчины'
-                if age_br=='able':
-                    df_age_str = '18-59'
-                elif age_br=='old':
-                    df_age_str = '60-100'
-            else:
-                sex_str = 'Женщины'
-                if age_br=='able':
-                    df_age_str = '18-54'
-                elif age_br=='old':
-                    df_age_str = '55-100'
-
-            if df_age_str!='':
-                start, finish = list(map(int, df_age_str.split('-')))
-            else: 
-                start, finish = list(map(int, age_br.split('-')))
-
-            # находим кол-во студентов в интервале
-            age_group_vals = pop_df.loc[start:finish,
-                                        (slice(None),sex_str)].sum()
-            age_group_dis = (age_group_vals * (dis_df_fraq.loc[age_br, 
-                                                               (slice(None),sex)]
-                                              ).values).values.astype(int)
-
-            if age_group_dis.sum()!=0:
-                for idx, year in enumerate(years):
-                    # размазываем линейно по возрастам
-                    probs = np.linspace(0.1, 1, num=finish-start+1)
-                    probs = probs/probs.sum()
-                    for idx, year in enumerate(years):
-                        np.random.seed(27) 
-                        # раскидываем числа с учетом вероятностей
-                        q = np.random.multinomial(age_group_dis[idx], probs)
-                        pop_dis.loc[start:finish,(year,sex_str)] = q
-
-
-            df_age_str=''
-            
-    return pop_dis
+    pets_df = (pop_df * pets_age_fraq.values).astype(int)
+    return pets_df

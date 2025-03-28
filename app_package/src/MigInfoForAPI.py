@@ -532,7 +532,6 @@ def mig_dest_prepared(show_level, fin_df, siblings,
                       change_lo_level=False, md_year=2022, from_file=False):
     
     
-    print(from_file)
     if show_level <= 1:
         if from_file:
             siblings = pd.read_csv(file_path+'bd_id_geom_regions.csv', index_col=0)
@@ -543,7 +542,6 @@ def mig_dest_prepared(show_level, fin_df, siblings,
                                 index_col=0)
         yeartab = siblings.drop(columns=['oktmo']
                                ).merge(res_years, on='name')
-        print(siblings.name.nunique(), res_years.name.nunique(), yeartab.shape)
         # при ЛО где-то дублируется
         if 'territory_id_x' in yeartab.columns:
            yeartab = yeartab.rename(columns={'territory_id_x':'territory_id'}
