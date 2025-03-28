@@ -70,7 +70,7 @@ def info_for_graph(territory_id, show_level=0, md_year=2022):
 
 def info(territory_id, show_level=0, detailed=False, 
          with_mig_dest=False, fill_in_4=False, md_year=2022, 
-         change_lo_level=True, from_file=True):
+         change_lo_level=True, from_file=True, mig_other_regions=False):
     
     session = requests.Session()
     current_territory = Territory(territory_id)
@@ -96,11 +96,16 @@ def info(territory_id, show_level=0, detailed=False,
         fin['geometry'] = [current_territory.geometry]
         fin['centre_point'] = [current_territory.centre_point]
         
+        fin_df = pd.DataFrame([])
+        fin_df_m = detailed_migration(session, current_territory, fin_df)
+        fin_df = fin_df_m.rename_axis('year').reset_index()
+        fin_df = detailed_factors(session, current_territory, fin_df)
+        
         # добавляем направления миграции
         if with_mig_dest:
             # для detailed_info ставится show_level=0
             # для уровня областей быстрее из файла (surpise-surprise)
-            if from_file & (show_level <= 1):
+            if from_file & (show_level <= 1) & (current_territory.territory_type==1):
                 
                 from_to_geom, from_to_lines = mig_dest_prepared(show_level=show_level, 
                                                                 fin_df=fin, siblings=[], 
@@ -134,12 +139,13 @@ def info(territory_id, show_level=0, detailed=False,
                                                                 fin_df=fin, siblings=siblings, 
                                                                 change_lo_level=change_lo_level,
                                                                md_year=md_year)
+            if mig_other_regions:
+                from_to_geom_regions, from_to_lines_regions = mig_dest_prepared_regions(show_level, 
+                                                                fin_df, current_territory,
+                                                                change_lo_level,
+                                                               md_year)
 
-        fin_df = pd.DataFrame([])
         
-        fin_df = detailed_migration(session, current_territory, fin_df)
-        fin_df = fin_df.rename_axis('year').reset_index()
-        fin_df = detailed_factors(session, current_territory, fin_df)
         #fin_df['Численность населения'] = [current_territory.pop_all]
       
         
@@ -159,11 +165,7 @@ def info(territory_id, show_level=0, detailed=False,
             terr_classes = [child for one_class in terr_classes for child in one_class.children]
             # новые id тер-рий
             terr_ids = [one_class.territory_id for one_class in terr_classes]
-        
-        '''
-        '''
-        
-        
+
         # all final children in <terr_classes>    
         fin_df = pd.DataFrame([])
         fin_df['territory_id'] = [cl.territory_id for cl in terr_classes]
@@ -228,6 +230,7 @@ def info(territory_id, show_level=0, detailed=False,
                                                                 fin_df=fin_df, siblings=siblings,
                                                                 change_lo_level=change_lo_level,
                                                                 md_year=md_year)
+                
             
         fin_df = main_migration(session, fin_df)    
         fin_df = main_factors(session, fin_df)
@@ -240,13 +243,107 @@ def info(territory_id, show_level=0, detailed=False,
     
     
     if with_mig_dest:
-        return [fin_df, from_to_geom, 
-                gpd.GeoDataFrame(from_to_lines, geometry='line')]
+        
+        if mig_other_regions:
+            return [fin_df, from_to_geom, gpd.GeoDataFrame(from_to_lines, 
+                                                           geometry='line'), 
+                    from_to_geom_regions, gpd.GeoDataFrame(from_to_lines_regions, 
+                                                           geometry='line')]
+        else:
+            return [fin_df, from_to_geom, gpd.GeoDataFrame(from_to_lines, 
+                                                           geometry='line')]
 
     else:
         return fin_df
     
 
+def mig_dest_prepared_regions(show_level,
+                       fin_df_m, current_territory,                            
+                       change_lo_level=False, md_year=2022, 
+                       from_file=False):
+    
+    # берем инф-ию о миграции заданной терр-рии
+    j = fin_df_m[fin_df_m['Год'] == md_year]
+    Ext_in = j["Входящая. Миграция всего"]-j["Входящая. Внутрирегиональная"]
+    Ext_out = j["Исходящая. Миграция всего"]-j["Исходящая. Внутрирегиональная"]
+    
+    saldo = pd.read_csv(file_path+ 'obl_mig_no_tid_19-23.csv', index_col=0)
+    saldo0 = saldo[saldo.year==md_year].reset_index(drop=True).drop(columns=['year', 'lat','lon'])
+    
+    # в списке регионов меняем ЛО на данную территорию
+    home_str = 'Ленинградская область'
+    home=saldo0[saldo0.name==home_str].reset_index(drop=True)
+
+    kin = (home.Int_in/(home.Int_in+home.Int_out)).values[0]
+    kout = (home.Ext_in/(home.Ext_in+home.Ext_out)).values[0]
+    
+    curr_ter_info = [current_territory.name, int(Ext_in*kin), int(Ext_in*(1-kin)), 
+                     int(Ext_out*kout), int(Ext_out*(1-kout)),
+                     current_territory.name, current_territory.territory_id, 
+                     current_territory.territory_id]
+    saldo0.loc[saldo0.name==home_str,:] = curr_ter_info
+    
+    # строим граф
+    saldo0['year'] = md_year
+    result = create_graph(saldo0, md_year)
+
+    # Добавляем данные нашей территории    
+    df_with_geom = pd.read_csv(file_path+'bd_id_geom_regions.csv', index_col=0)
+    curr_info = pd.DataFrame([current_territory.territory_id, current_territory.name,
+                              current_territory.oktmo,'',current_territory.geometry]).T
+    curr_info.columns = df_with_geom.columns
+    df_with_geom = pd.concat([curr_info, df_with_geom])
+    
+    # линии только из заданных территорий
+    uniq_ids = [current_territory.territory_id]
+    result = result[(result.from_territory_id.isin([*uniq_ids])
+                    )|(result.to_territory_id.isin([*uniq_ids]))
+                   ]
+    
+    # дополняем инф-ию о геометрии
+    df_with_geom.loc[:,'geometry'] = gpd.GeoSeries.from_wkt(df_with_geom['geometry'].astype(str))
+    df_with_geom.loc[:,'centroid'] = df_with_geom.geometry.apply(lambda x: x.centroid)
+
+    if 'name_x' in result.columns:
+        print('deleting')
+        result = result.drop(columns=['name_x'])
+    # мерджим, чтобы добавить инф-ию по id и geometry
+    #  для узла "откуда"
+    result = result.merge(df_with_geom[['territory_id','name','geometry','centroid']], 
+                      left_on='from_territory_id', 
+                      right_on='territory_id', how='left'
+                      ).rename(columns={'geometry':'from_geometry',
+                                       'centroid':'from_centroid'}
+                              ).drop(columns=['territory_id'])
+    #  для узла "куда"
+    result = result.merge(df_with_geom[['territory_id','name','geometry','centroid']], 
+                      left_on='to_territory_id', 
+                      right_on='territory_id', how='left'
+                         ).rename(columns={'geometry':'to_geometry',
+                                       'centroid':'to_centroid'}
+                                 ).drop(columns=['territory_id'])
+    
+    
+                
+    from_to_geom, from_to_lines = mig_dest_multipolygons(result, df_with_geom)
+    from_to_geom = from_to_geom.drop_duplicates()
+    
+    # колонки на русском
+    from_to_geom = from_to_geom.rename(columns={'people_in':'Количество приехавших',
+                                                'people_out':'Количество уехавших',
+                                                'name':'Название территории'})
+    
+    from_to_lines = from_to_lines.drop_duplicates()
+    from_to_lines.loc[:,'to_territory_id'] = from_to_lines['to_territory_id'].astype(int)
+    from_to_lines.loc[:,'from_territory_id'] = from_to_lines['from_territory_id'].astype(int)
+
+    from_to_geom = from_to_geom.rename(columns={'n_people':'Количество уехавших',
+                                                'people_out':'Количество уехавших',
+                                                'name':'Название территории'})
+    
+    return from_to_geom, from_to_lines
+    
+    
 def main_factors(session, fin_df):
     sdf = pd.read_csv(file_path+'superdataset_iqr.csv')
     sdf['oktmo'] = sdf['oktmo'].astype(str)
@@ -530,8 +627,7 @@ def mig_dest_multipolygons(result, fin_df_with_centre):
 
 def mig_dest_prepared(show_level, fin_df, siblings, 
                       change_lo_level=False, md_year=2022, from_file=False):
-    
-    
+
     if show_level <= 1:
         if from_file:
             siblings = pd.read_csv(file_path+'bd_id_geom_regions.csv', index_col=0)
@@ -542,9 +638,10 @@ def mig_dest_prepared(show_level, fin_df, siblings,
                                 index_col=0)
         yeartab = siblings.drop(columns=['oktmo']
                                ).merge(res_years, on='name')
+        print(siblings.name.nunique(), res_years.name.nunique(), yeartab.shape)
         # при ЛО где-то дублируется
         if 'territory_id_x' in yeartab.columns:
-           yeartab = yeartab.rename(columns={'territory_id_x':'territory_id'}
+            yeartab = yeartab.rename(columns={'territory_id_x':'territory_id'}
                                     ).drop(columns=['territory_id_y'])
         
         

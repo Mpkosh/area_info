@@ -413,18 +413,35 @@ def detailed_migr():
     with_mig_dest = request.args.get('mig_destinations', type = is_it_true, default=False)
     md_year = request.args.get('given_year', type = int, default=2022)
     from_file = request.args.get('from_file', type = is_it_true, default=True)
+    mig_other_regions = request.args.get('mig_other_regions', type = is_it_true, default=True)
 
     result = MigInfoForAPI.info(territory_id=territory_id, 
                                 detailed=True, 
                                 with_mig_dest=with_mig_dest,
+                                mig_other_regions = mig_other_regions,
                                 md_year=md_year,
                                 from_file=from_file)
                             
     if with_mig_dest:
-        fin_df, from_to_geom, from_to_lines = result
-        from_to_geom = from_to_geom.set_geometry('geometry')
-        from_to_lines = from_to_lines.set_geometry('line')
-        return [fin_df.to_json(orient="records"), from_to_geom.to_json(), from_to_lines.to_json()]
+        
+        if mig_other_regions:
+            fin_df, from_to_geom, from_to_lines, from_to_geom_r, from_to_lines_r = result
+            from_to_geom = from_to_geom.set_geometry('geometry')
+            from_to_lines = from_to_lines.set_geometry('line')
+            from_to_geom = from_to_geom.set_geometry('geometry')
+            from_to_lines = from_to_lines.set_geometry('line')
+            
+            return [fin_df.to_json(orient="records"), from_to_geom.to_json(), from_to_lines.to_json(),
+                    from_to_geom_r.to_json(), from_to_lines_r.to_json()]
+        
+        else:
+            fin_df, from_to_geom, from_to_lines = result
+            from_to_geom = from_to_geom.set_geometry('geometry')
+            from_to_lines = from_to_lines.set_geometry('line')
+
+            return [fin_df.to_json(orient="records"), from_to_geom.to_json(), from_to_lines.to_json()]
+    
+        
     else:
         return Response(result.to_json(orient="records"), 
                         mimetype='application/json')
