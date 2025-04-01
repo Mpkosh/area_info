@@ -176,19 +176,11 @@ def density_data_geojson(session, territory_id=34, from_api=False):
     # данные о ГП/СП и НП
     _, fin_vills_full, _ = get_density_data(session, territory_id=territory_id, 
                                             from_api=from_api)
-    '''
-    full_df = fin_vills_full.drop(columns=['parent.name']).rename(columns={'geometry_x':'geometry_areas',
-                                                                          'geometry_y':'geometry_villages'}
-                                                                 ).set_geometry('geometry_areas'
-                                                                               ).set_index('territory_id')
     
-    full_df = fin_vills_full.drop(columns=['parent.name']).rename(columns={'geometry':'geometry_areas',
-                                                                          'centre_point':'geometry_villages'}
-                                                                 ).set_geometry('geometry_areas')
-    '''              
-    full_df = fin_vills_full.drop(columns=['parent.id']).rename(columns={'geometry':'geometry_areas',
-                                                                         'centre_point':'geometry_villages'}
-                                                                ).set_geometry('geometry_areas').set_index('territory_id')
+    full_df = fin_vills_full.drop(columns=['parent.id']
+                                  ).rename(columns={'geometry':'geometry_areas',
+                                                    'centre_point':'geometry_villages'}
+                                                    ).set_geometry('geometry_areas')#.set_index('territory_id')
     # меняем, чтобы удалось преобразовать в geojson
     full_df['geometry_villages'] = full_df['geometry_villages'].astype('str')
     
