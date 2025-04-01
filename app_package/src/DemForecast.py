@@ -9,6 +9,39 @@ import numpy as np
 from app_package.src.AuxFilePrepro import get_mor_rate
 
 
+file_dir = 'app_package/src/population_data/'
+
+
+def get_predictions(df, forecast_until, given_year, for_mig=False):
+    last_pop_year = df.columns.levels[0][-1]
+    n_age_groups = 1
+    df.index = df.index.astype(int)
+    # если нужен год больше текущего -- делаем прогноз
+    if forecast_until>0:
+        if forecast_until > last_pop_year:
+            folders={'popdir':file_dir,
+                 'file_name':'Ленинградская область.xlsx'}
+            forecast_df = MakeForecast(df, last_pop_year, 
+                                        forecast_until - last_pop_year, folders)
+        else:
+            forecast_df = pd.DataFrame()
+        # отрезаем от прогноза первый год (== поданному на вход последнему году)
+        df = pd.concat([df, forecast_df.iloc[:, 2:]], axis=1)
+
+    else:
+        if given_year > last_pop_year:
+            folders={'popdir':file_dir,
+                 'file_name':'Ленинградская область.xlsx'}
+            df = MakeForecast(df, last_pop_year, 
+                              given_year - last_pop_year, folders)
+        if for_mig:
+            df = df[[given_year-1,given_year]]
+        else:
+            df = df[[given_year]]
+    df.columns = df.columns.remove_unused_levels()    
+    return df
+
+
 '''Расчет миграционного сальдо'''
 def GetMigSaldo(df, folders):
     mr = get_mor_rate(folders['popdir']+folders['file_name'][:-5]+" morrate.xlsx")
