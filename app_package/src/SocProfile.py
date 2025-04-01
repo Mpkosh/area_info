@@ -68,9 +68,15 @@ def get_profiles(territory_id, forecast_until=0, given_year=2023):
     #citizens_disabled = get_disabled(pop_df) 
     citizens_with_pets = get_with_pets(pop_df) 
     
-    return [*citizens_by_age_gr, *citizens_with_kids,
+    res = [*citizens_by_age_gr, *citizens_with_kids,
            *citizens_by_religion, citizens_students, 
             citizens_with_pets]
+    
+    for i in res:
+        if i.loc[:,(slice(None),'Мужчины')].sum().sum() > 0:
+            i.loc[:,(slice(None),'Мужчины')] *= -1
+            
+    return res
 
 
 def get_religions(pop_df):
