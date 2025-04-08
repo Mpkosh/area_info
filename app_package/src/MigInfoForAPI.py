@@ -210,9 +210,9 @@ def info(territory_id, show_level=0, detailed=False,
             if from_file & (show_level <= 1) & (current_territory.territory_type==1):
                 from_to_geom, from_to_lines = mig_dest_prepared(show_level=show_level, 
                                                                 fin_df=fin_df, siblings=[], 
-                                                                change_lo_level=change_lo_level, 
-                                                                md_year=md_year,
-                                                                from_file=from_file)
+                                                                change_lo_level=change_lo_level,
+                                                                md_year=md_year, from_file=from_file,
+                                                     working_with_np=working_with_np)
             else:
                 if n_children!=0:
                     siblings = fin_df[['territory_id','oktmo','name','geometry']].copy()
@@ -242,9 +242,12 @@ def info(territory_id, show_level=0, detailed=False,
                     show_level = terr_classes[0].territory_type
                 
                 from_to_geom, from_to_lines = mig_dest_prepared(show_level=show_level, 
-                                                                fin_df=fin_df, siblings=siblings,
+                                                                fin_df=fin_df, 
+                                                                current_territory=current_territory,
+                                                                siblings=siblings,
                                                                 change_lo_level=change_lo_level,
-                                                                md_year=md_year)
+                                                                md_year=md_year, from_file=from_file,
+                                                     working_with_np=working_with_np)
                 
             
         fin_df = main_migration(session, fin_df)    
