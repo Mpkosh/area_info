@@ -66,7 +66,7 @@ def pyramid_data():
     territory_id = request.args.get('territory_id', type = int, default=34)
     n_age_groups = request.args.get('n_age_groups', type = int, default=5)
     unpack_after_70 = request.args.get('unpack_after_70', type = is_it_true, default=False)
-    
+   
     session = requests.Session()
     df = PopInfoForAPI.get_detailed_pop(session, territory_id, 
                                         unpack_after_70=unpack_after_70, last_year=False, 
