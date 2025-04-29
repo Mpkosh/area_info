@@ -340,7 +340,7 @@ def main_migr():
     show_level = request.args.get('show_level', type = int, default=2)
     with_mig_dest = request.args.get('mig_destinations', type = is_it_true, default=False)
     change_lo_level = request.args.get('change_lo_level', type = is_it_true, default=True)
-    from_file = request.args.get('from_file', type = is_it_true, default=True)
+    from_file = request.args.get('from_file', type = is_it_true, default=False)
     
     result = MigInfoForAPI.info(territory_id=territory_id, 
                                 show_level=show_level, 

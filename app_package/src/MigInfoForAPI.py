@@ -192,14 +192,17 @@ def info(territory_id, show_level=0, detailed=False,
         fin_df['centre_point'] = [cl.centre_point for cl in terr_classes]
         
         if (show_level==4)&(fill_in_4):
-            # восполняем тем, что есть; на всякий случай сортируем
-            # print('Заполнение колонки pop_all с файла towns.geojson')
-            towns = gpd.read_file('towns.geojson')
-            towns = towns.set_index('territory_id').loc[fin_df.territory_id].reset_index()
-            fin_df['pop_all'] = towns[towns.territory_id.isin(fin_df.territory_id)]['population'].values
-            fin_df['pop_all'] = fin_df['pop_all'].fillna(0)
-            for child in terr_classes:
-                child.pop_all = fin_df[fin_df.territory_id==child.territory_id]['pop_all'].values[0]
+            try:
+                # восполняем тем, что есть; на всякий случай сортируем
+                # print('Заполнение колонки pop_all с файла towns.geojson')
+                towns = gpd.read_file('towns.geojson')
+                towns = towns.set_index('territory_id').loc[fin_df.territory_id].reset_index()
+                fin_df['pop_all'] = towns[towns.territory_id.isin(fin_df.territory_id)]['population'].values
+                fin_df['pop_all'] = fin_df['pop_all'].fillna(0)
+                for child in terr_classes:
+                    child.pop_all = fin_df[fin_df.territory_id==child.territory_id]['pop_all'].values[0]
+            except:
+                pass
                 
         # у ЛО нет октмо в БД
         with pd.option_context("future.no_silent_downcasting", True):
@@ -211,12 +214,10 @@ def info(territory_id, show_level=0, detailed=False,
             # для уровня областей быстрее из файла (surpise-surprise)
             if from_file & (show_level <= 1) & (current_territory.territory_type==1):
                 from_to_geom, from_to_lines = mig_dest_prepared(show_level=show_level, 
-                                                                fin_df=fin_df, 
-                                                                current_territory=current_territory,
-                                                                siblings=[], 
-                                                                change_lo_level=change_lo_level,
-                                                                md_year=md_year, from_file=from_file,
-                                                     working_with_np=working_with_np)
+                                                                fin_df=fin_df, siblings=[], 
+                                                                change_lo_level=change_lo_level, 
+                                                                md_year=md_year,
+                                                                from_file=from_file)
             else:
                 if n_children!=0:
                     siblings = fin_df[['territory_id','oktmo','name','geometry']].copy()
@@ -244,14 +245,16 @@ def info(territory_id, show_level=0, detailed=False,
                     siblings['geometry'] = [cl.geometry for cl in terr_classes]
                     siblings['centroid'] = [cl.centre_point for cl in terr_classes]
                     show_level = terr_classes[0].territory_type
-                
+
                 from_to_geom, from_to_lines = mig_dest_prepared(show_level=show_level, 
                                                                 fin_df=fin_df, 
                                                                 current_territory=current_territory,
                                                                 siblings=siblings,
                                                                 change_lo_level=change_lo_level,
-                                                                md_year=md_year, from_file=from_file,
-                                                     working_with_np=working_with_np)
+                                                                md_year=md_year,
+                                                                from_file=from_file,
+                                                                working_with_np=working_with_np,
+                                                               terr_classes=terr_classes)
                 
             
         fin_df = main_migration(session, fin_df)    
@@ -704,8 +707,9 @@ def mig_dest_multipolygons(result, fin_df_with_centre,
 
 def mig_dest_prepared(show_level, fin_df, current_territory,
                       siblings, change_lo_level=False, md_year=2022, 
-                      from_file=False, working_with_np=False):
-
+                      from_file=False, working_with_np=False, terr_classes=[]):
+    #print(current_territory.name, current_territory.territory_type)
+    #print(siblings.shape, siblings.head(2))
     if show_level <= 1:
         if from_file:
             siblings = pd.read_csv(file_path+'bd_id_geom_regions.csv', index_col=0)
@@ -724,30 +728,35 @@ def mig_dest_prepared(show_level, fin_df, current_territory,
         result = create_graph(yeartab, md_year)
         
     else:
-        df_with_geom = pd.read_csv(file_path+'lo_3_parents.csv', 
-                                   index_col=0)
-        if show_level >= 3:
-            # result = pd.read_csv(file_path+f'graph_LO_{show_level}level_{md_year}.csv',index_col=0)
-            res = pd.read_csv(file_path + 'graph_LO_3_no_spb_19-22.csv', index_col=0)
-            result = res[res.year==md_year].drop(columns=['year']) # для /main_info/ всегда посл.год
-            
-        else:
-            pre_result = pd.read_csv(file_path+'for_graph_LO_2_no_spb.csv',
-                                     index_col=0)
-            
-            result = create_graph(pre_result, md_year)
+
+        df_with_geom = siblings.copy()
+        #pre_result = pd.read_csv(file_path+'for_graph_LO_2_no_spb.csv', index_col=0)
+        dd = pd.read_csv(file_path+'mig_types_19-22.csv')
+        dd['oktmo'] = dd['oktmo'].astype(str)
+
+        oktmo = fin_df.oktmo.values
+        needed_part = dd[(dd.oktmo.isin(oktmo))][['oktmo','name','year',
+                                                  'total_inflow','total_outflow',
+                                                  'interreg_inflow','interreg_outflow']]
+        needed_part.loc[:,'Ext_in'] = needed_part['total_inflow'
+                                           ] - needed_part['interreg_inflow']
+        needed_part.loc[:,'Ext_out'] = needed_part['total_outflow'
+                                           ] - needed_part['interreg_outflow']
+        needed_part = needed_part.rename(columns={'interreg_inflow':'Int_in',
+                                                  'interreg_outflow':'Int_out'})
+        pre_result = needed_part[['oktmo','year','Int_in','Int_out','Ext_in','Ext_out']
+                          ].merge(fin_df[['oktmo','name','territory_id',
+                                          'geometry']], on='oktmo')
+        #print(pre_result)
+
+        result = create_graph(pre_result, md_year)
                   
     # линии только из заданных территорий
     uniq_ids = fin_df.territory_id.unique()
     result = result[(result.from_territory_id.isin([*uniq_ids])
                     )|(result.to_territory_id.isin([*uniq_ids]))
                    ]
-    
-    if show_level==2:
-        # взять только колонки _parent и поменять названия
-        df_with_geom = df_with_geom.iloc[:,4:].drop_duplicates()
-        df_with_geom.columns = ['territory_id','oktmo','name','geometry']
-    
+
     if show_level>1:
         df_with_geom.loc[:,'geometry'] = gpd.GeoSeries.from_wkt(df_with_geom['geometry'].astype(str))
         df_with_geom.loc[:,'centroid'] = df_with_geom.geometry.apply(lambda x: x.centroid)
@@ -775,12 +784,21 @@ def mig_dest_prepared(show_level, fin_df, current_territory,
                          ).rename(columns={'geometry':'to_geometry',
                                        'centroid':'to_centroid'}
                                  ).drop(columns=['territory_id'])
-    
     # сгруппировать побочные территории, чтобы не нагружать рисунок
-    # если при подъеме будет не ЛО, если задали подъем, если это не detailed=True 
+    # (если при подъеме будет не ЛО или если это не detailed=True), (если задали подъем), 
     if (show_level-1 > 1)&(change_lo_level):
+        df_with_geom.loc[:,'territory_id_parent'
+                        ] = [cl.parent.territory_id for cl in terr_classes]
+        df_with_geom.loc[:,'oktmo_parent'
+                        ] = [cl.parent.oktmo for cl in terr_classes]
+        df_with_geom.loc[:,'name_parent'
+                        ] = [cl.parent.name for cl in terr_classes]
+        df_with_geom.loc[:,'geometry_parent'
+                        ] = [cl.parent.geometry for cl in terr_classes]
+
         lo_for_dict = df_with_geom[['territory_id','territory_id_parent',
                     'geometry_parent']].copy()
+        
         lo_for_dict.loc[:,'geometry_parent'] = gpd.GeoSeries.from_wkt(
             lo_for_dict['geometry_parent'].astype(str))
         lo_for_dict.loc[:,'centroid'] = lo_for_dict.geometry_parent.apply(lambda x: x.centroid)
@@ -792,13 +810,13 @@ def mig_dest_prepared(show_level, fin_df, current_territory,
         
         # заменяем наш дф с геометрией детей-родителей;
         # для нерассматриваемых id заменяем на территорию выше
+        
         bool_idx = ~df_with_geom.territory_id.isin(uniq_ids)
+        
         df_with_geom.loc[bool_idx, df_with_geom.columns[:4]
                         ] = df_with_geom.loc[bool_idx, df_with_geom.columns[4:-1]].values
         df_with_geom = df_with_geom.drop_duplicates()
-     
-    
-    
+ 
     from_to_geom, from_to_lines = mig_dest_multipolygons(result, df_with_geom,
                                                          current_territory,working_with_np)
     from_to_geom = from_to_geom.drop_duplicates()
