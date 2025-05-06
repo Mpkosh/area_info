@@ -20,6 +20,8 @@ file_path = 'app_package/src/for_val_ident/'
 #признаки, которые не делятся на население
 non_pop_features = ['livarea', 'consnewapt', 'avgsalary', 'avgemployers', 'pollutcapturedperc', 'harvest', 'litstreetperc']
 
+"""РАЗДЕЛ МАТРИЦЫ ЦЕННОСТЕЙ-ИДЕНТИЧНОСТЕЙ"""
+
 def get_oktmo_level(territory_id: int) -> int:
 	"""
 	Получает territory_id региона (если рассматриваются МО уровня 4), код ОКТМО и уровень для заданной по territory_id территории
@@ -380,6 +382,7 @@ def ch_muni_tab(parent_id: int, show_level: int) -> json:
 
 """РАЗДЕЛ РЕКОМЕНДАЦИЙ"""
 
+#Функция, определяющая красные клеточки
 def determine_bad(val_ident_ser):
 	#костыль, чтобы работало с null'ами
 	to_leave = val_ident_ser.iloc[2:]
@@ -396,7 +399,9 @@ def smart_cell_recommend(val_ident_matrix):
 	val_ident_matrix = pd.read_json(StringIO(val_ident_matrix)).reindex(['dev', 'soc', 'bas'])
 	#Переводим таблицу в Series
 	val_ident_ser = tab_to_ser(val_ident_matrix)
-	return determine_bad(val_ident_ser).to_json()
+	bad_cells = determine_bad(val_ident_ser).to_json()
+
+	pass
 
 """подраздел рекомендаций по факторам"""
 
@@ -411,12 +416,14 @@ def factor_recommend(territory_id):
 		full_df = pd.read_csv(f'{file_path}full_df4.csv', sep = ';', index_col = 0)
 		terr_data = full_df.loc[oktmo, :]
 		best_data = pd.read_csv(f'{file_path}best_vals_3.csv', sep = ',', index_col = 1).mean_best_value
+
 		terr_data.loc['badcompanies'] = -1 * terr_data.loc['badcompanies']
 		terr_data.loc['badhousesdwellers'] = -1 * terr_data.loc['badhousesdwellers']
 		terr_data.loc['pollutionvol'] = -1 * terr_data.loc['pollutionvol']
 		best_data.loc['badcompanies'] = -1 * best_data.loc['badcompanies']
 		best_data.loc['badhousesdwellers'] = -1 * best_data.loc['badhousesdwellers']
 		best_data.loc['pollutionvol'] = -1 * best_data.loc['pollutionvol']
+
 		percentage_ser = ((best_data - terr_data) * 100 / terr_data)
 		percentage_ser = percentage_ser.drop(['roadslen', 'livestock', 'sportschool'])
 		percentage_ser = percentage_ser.drop(percentage_ser[percentage_ser.isnull()].index)
@@ -431,10 +438,12 @@ def factor_recommend(territory_id):
 		reg_df = pd.read_csv(f'{file_path}df_{region_id}_4.csv', sep = ';', index_col = 0)
 		terr_data = reg_df.loc[territory_id, :]
 		best_data = pd.read_csv(f'{file_path}best_vals_4.csv', sep = ',', index_col = 1).mean_best_value
+
 		terr_data.loc['badcompanies'] = -1 * terr_data.loc['badcompanies']
 		terr_data.loc['badhousesdwellers'] = -1 * terr_data.loc['badhousesdwellers']
 		best_data.loc['badcompanies'] = -1 * best_data.loc['badcompanies']
 		best_data.loc['badhousesdwellers'] = -1 * best_data.loc['badhousesdwellers']
+		
 		percentage_ser = ((best_data - terr_data) * 100 / terr_data)
 		percentage_ser = percentage_ser.drop(['roadslen', 'livestock', 'sportschool'])
 		percentage_ser = percentage_ser.drop(percentage_ser[percentage_ser.isnull()].index)
