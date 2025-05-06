@@ -66,7 +66,7 @@ def pyramid_data():
     territory_id = request.args.get('territory_id', type = int, default=34)
     n_age_groups = request.args.get('n_age_groups', type = int, default=5)
     unpack_after_70 = request.args.get('unpack_after_70', type = is_it_true, default=False)
-    
+   
     session = requests.Session()
     df = PopInfoForAPI.get_detailed_pop(session, territory_id, 
                                         unpack_after_70=unpack_after_70, last_year=False, 
@@ -338,12 +338,13 @@ def factor_recommend():
 def main_migr():
     territory_id = request.args.get('territory_id', type = int, default=34)
     show_level = request.args.get('show_level', type = int, default=2)
+    down_by = request.args.get('down_by', type = int, default=0)
     with_mig_dest = request.args.get('mig_destinations', type = is_it_true, default=False)
     change_lo_level = request.args.get('change_lo_level', type = is_it_true, default=True)
-    from_file = request.args.get('from_file', type = is_it_true, default=True)
+    from_file = request.args.get('from_file', type = is_it_true, default=False)
     
     result = MigInfoForAPI.info(territory_id=territory_id, 
-                                show_level=show_level, 
+                                down_by=down_by, 
                                 with_mig_dest=with_mig_dest,
                                 change_lo_level=change_lo_level,
                                 from_file=from_file)

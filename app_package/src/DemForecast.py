@@ -15,9 +15,12 @@ file_dir = 'app_package/src/population_data/'
 def get_predictions(df, forecast_until, given_year, for_mig=False):
     last_pop_year = df.columns.levels[0][-1]
     n_age_groups = 1
-    df.index = df.index.astype(int)
+    print('last_pop_year', last_pop_year)
+    
+    
     # если нужен год больше текущего -- делаем прогноз
     if forecast_until>0:
+        df.index = df.index.astype(int)
         if forecast_until > last_pop_year:
             folders={'popdir':file_dir,
                  'file_name':'Ленинградская область.xlsx'}
@@ -30,6 +33,7 @@ def get_predictions(df, forecast_until, given_year, for_mig=False):
 
     else:
         if given_year > last_pop_year:
+            df.index = df.index.astype(int)
             folders={'popdir':file_dir,
                  'file_name':'Ленинградская область.xlsx'}
             df = MakeForecast(df, last_pop_year, 

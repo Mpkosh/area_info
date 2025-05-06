@@ -25,11 +25,11 @@ def to_interval(x):
     
 def prepro_from_api(df_from_json, given_years=[2019,2020], unpack_after_70=False):
     df_all = df_from_json[df_from_json.year.isin(given_years)]
-
+    
     df_list = []
     for year in given_years:
         # отсеиваем случайные данные
-        if (year != 0) and (year!=2024):
+        if (year != 0):# and (year!=2024):
             df = pd.json_normalize(df_all[df_all['year']==year]['data'].explode())
             
             # 101 если раскрыты возраста
@@ -42,11 +42,13 @@ def prepro_from_api(df_from_json, given_years=[2019,2020], unpack_after_70=False
                 unpack_after_70 = True
                 # всякий случай задаем возраста: 
                 # 1) все с интервалом 1 год; 2) 100+; 3) с интервалом 4 года для старших
+                '''
                 df = df[(df['age_start']==df['age_end'])|(
                         df['age_start']==100)|(
                         (df['age_end']-df['age_start']==4)&(
                             df['age_end'].isin([74,79,84,89,94,99])))]
-                            
+                '''            
+  
             df['группа'] = df.iloc[:,:2].apply(to_interval, 1)
     
             df = df.set_index('группа').iloc[:,2:]
@@ -58,7 +60,6 @@ def prepro_from_api(df_from_json, given_years=[2019,2020], unpack_after_70=False
             df_list.append(df)
 
     df = pd.concat(df_list, axis='columns')
-    
     if unpack_after_70:
         df = PreproDF.add_ages_70_to_100(df)
         df.index = df.index.astype(str)
@@ -108,7 +109,7 @@ def info(territory_id=34, show_level=3, specific_year=2022):
     session = requests.Session()
     current_territory = Territory(territory_id)
     main_info(session, current_territory, show_level)
-    
+
     if show_level < current_territory.territory_type:
         raise ValueError(f'Show level (given: {show_level}) must be >= territory type (given: {current_territory.territory_type})')
         
@@ -139,16 +140,19 @@ def info(territory_id=34, show_level=3, specific_year=2022):
     if show_level==4:
         # восполняем тем, что есть; на всякий случай сортируем
         # print('Заполнение колонки pop_all с файла towns.geojson')
-        towns = gpd.read_file(file_path+'towns.geojson')
-        towns = towns.set_index('territory_id').loc[fin_df.territory_id].reset_index()
-        fin_df['pop_all'] = towns[towns.territory_id.isin(fin_df.territory_id)]['population'].values
-        fin_df['pop_all'] = fin_df['pop_all'].fillna(0)
-        
-        for child in terr_classes:
-            child.pop_all = fin_df[fin_df.territory_id==child.territory_id]['pop_all'].values[0]
-            change = False
+        try:
+            towns = gpd.read_file(file_path+'towns.geojson')
+            towns = towns.set_index('territory_id').loc[fin_df.territory_id].reset_index()
+            fin_df['pop_all'] = towns[towns.territory_id.isin(fin_df.territory_id)]['population'].values
+            fin_df['pop_all'] = fin_df['pop_all'].fillna(0)
+            
+            for child in terr_classes:
+                child.pop_all = fin_df[fin_df.territory_id==child.territory_id]['pop_all'].values[0]
+                change = False
             #print(child.territory_id, child.name, pop_for_children.loc[child.territory_id])
-    
+        except:
+            pass
+        
     pyramid_info(session, terr_classes, specific_year)
     if change:
         fin_df['pop_all'] = [cl.pop_all for cl in terr_classes]
@@ -380,6 +384,7 @@ def last_pop_and_dnst(session, current_territory, dnst=False, both=False):
         
 def get_detailed_pop(session, territory_id, unpack_after_70=True, last_year=True, specific_year=0):
     url = social_api + f'indicators/2/{territory_id}/detailed'
+    print('get_detailed_pop', unpack_after_70)
     r = session.get(url)
     if r.status_code == 200:
         df_from_json = pd.DataFrame(r.json())
