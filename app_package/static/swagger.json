@@ -193,6 +193,32 @@
         }
       }
     },
+    "/regions/factor_best": {
+      "get": {
+        "tags": [
+          "Module 11"
+        ],
+        "summary": "Get best factor values of the territory compared to successful territories' average values",
+        "description": "## Get the territory's top-12 factors with greatest value excess in percents over average values of successful territories as a JSON.<br>\n**NOTE**: This request works for now only for districts (level = 3) throughout Russia and for urban/rural settlements (level = 4) of Leningrad region.\n\n\n **Parameters:**<br>\n\n* **territory_id** (int, Query): Unique identifier of the territory.\n\n**Returns:**<br>\n* **JSONResponse[[Factor: Excess_percent],...]:** A JSON response containing factor names and percentages of their values' excess over average values of successful territories.\n\n**Notes:**<br>\n* The set of best valued factors is always different for different territories.\n* For factors with negative effects (badcompanies, badhousesdwellers, pollutionvol) the given percentages demonstrate how much less the values of the territory are compared to average values of successful territories.\n* There's a ceiling for percentages: they do not exceed 100.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/territory_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/factor_bests_200"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/migrations/main_info": {
       "get": {
         "tags": [
@@ -2033,6 +2059,60 @@
             "type": "number",
             "example": 14.4
           }
+        }
+      },
+      "factor_bests_200": {
+        "title": "Sample",
+        "type": "object",
+        "properties": {
+          "harvest": {
+            "type": "number",
+            "example": 99.99
+          },
+          "avgemployers": {
+            "type": "number",
+            "example": 92.26
+          },
+          "consnewareas": {
+            "type": "number",
+            "example": 88.26
+          },
+          "consnewapt": {
+            "type": "number",
+            "example": 86.94
+          },
+          "foodservturnover": {
+            "type": "number",
+            "example": 84.93
+          },
+          "goodcompincome": {
+            "type": "number",
+            "example": 82.03
+          },
+          "retailturnover": {
+            "type": "number",
+            "example": 70.71
+          },
+          "invest": {
+            "type": "number",
+            "example": 69.57
+          },
+          "funds": {
+            "type": "number",
+            "example": 55.34
+          },
+          "naturesecure": {
+            "type": "number",
+            "example": 43.41
+          },
+          "factoriescap": {
+            "type": "number",
+            "example": 38.03
+          },
+          "avgsalary": {
+            "type": "number",
+            "example": 36.41
+          },
         }
       },
       "detailed_info_200": {

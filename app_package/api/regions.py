@@ -329,6 +329,13 @@ def factor_recommend():
     result = ValIdentityMatrix.factor_recommend(territory_id)
     return Response(result, mimetype='application/json')
 
+@bp_api.route('/regions/factor_best', methods=['GET'])
+@cross_origin()
+def factor_best():
+    territory_id = request.args.get('territory_id', type = int, default = 34)
+    result = ValIdentityMatrix.factor_best(territory_id)
+    return Response(result, mimetype='application/json')
+
 
 #____________ OFFICIAL F21
 

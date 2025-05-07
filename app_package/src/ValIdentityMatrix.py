@@ -412,6 +412,7 @@ def factor_recommend(territory_id):
 	region_id, oktmo, level = get_oktmo_level(territory_id)
 
 	if level == 3:
+		
 		##ДЛЯ РАЙОНОВ
 		full_df = pd.read_csv(f'{file_path}full_df4.csv', sep = ';', index_col = 0)
 		terr_data = full_df.loc[oktmo, :]
@@ -450,6 +451,57 @@ def factor_recommend(territory_id):
 		percentage_ser = percentage_ser[(percentage_ser > 0) & (percentage_ser < 1000000000)]
 		percentage_ser = percentage_ser.apply(lambda x: x if x < 100 else 100)
 		percentage_ser = percentage_ser.sort_values(ascending = False).head(12)
+		return percentage_ser.to_json()
+	else:
+		##ДЛЯ ДРУГИХ УРОВНЕЙ
+		raise ValueError(f'Localities of this level (given: {level}) are not supported in this request')
+
+#функция для показа, какие значения параметров наиболее в плюсе у данной территории, относительно "лучших" территорий данного уровня
+def factor_best(territory_id):
+
+	#получаем id региона, oktmo и уровень данного муниципального образования
+	region_id, oktmo, level = get_oktmo_level(territory_id)
+
+	if level == 3:
+		
+		##ДЛЯ РАЙОНОВ
+		full_df = pd.read_csv(f'{file_path}full_df4.csv', sep = ';', index_col = 0)
+		terr_data = full_df.loc[oktmo, :]
+		best_data = pd.read_csv(f'{file_path}best_vals_3.csv', sep = ',', index_col = 1).mean_best_value
+
+		terr_data.loc['badcompanies'] = -1 * terr_data.loc['badcompanies']
+		terr_data.loc['badhousesdwellers'] = -1 * terr_data.loc['badhousesdwellers']
+		terr_data.loc['pollutionvol'] = -1 * terr_data.loc['pollutionvol']
+		best_data.loc['badcompanies'] = -1 * best_data.loc['badcompanies']
+		best_data.loc['badhousesdwellers'] = -1 * best_data.loc['badhousesdwellers']
+		best_data.loc['pollutionvol'] = -1 * best_data.loc['pollutionvol']
+
+		percentage_ser = ((best_data - terr_data) * 100 / terr_data)
+		percentage_ser = percentage_ser.drop(['roadslen', 'livestock', 'sportschool', 'munipoliceworkers'])
+		percentage_ser = percentage_ser.drop(percentage_ser[percentage_ser.isnull()].index)
+		percentage_ser = percentage_ser[percentage_ser < 0]
+		percentage_ser = percentage_ser.apply(lambda x: x if x > -100 else -100)
+		percentage_ser = -1 * percentage_ser.sort_values(ascending = True).head(12)
+		return percentage_ser.to_json()
+
+	elif level == 4:
+		
+		##ДЛЯ ПОСЕЛЕНИЙ
+		reg_df = pd.read_csv(f'{file_path}df_{region_id}_4.csv', sep = ';', index_col = 0)
+		terr_data = reg_df.loc[territory_id, :]
+		best_data = pd.read_csv(f'{file_path}best_vals_4.csv', sep = ',', index_col = 1).mean_best_value
+
+		terr_data.loc['badcompanies'] = -1 * terr_data.loc['badcompanies']
+		terr_data.loc['badhousesdwellers'] = -1 * terr_data.loc['badhousesdwellers']
+		best_data.loc['badcompanies'] = -1 * best_data.loc['badcompanies']
+		best_data.loc['badhousesdwellers'] = -1 * best_data.loc['badhousesdwellers']
+		
+		percentage_ser = ((best_data - terr_data) * 100 / terr_data)
+		percentage_ser = percentage_ser.drop(['roadslen', 'livestock', 'sportschool', 'munipoliceworkers'])
+		percentage_ser = percentage_ser.drop(percentage_ser[percentage_ser.isnull()].index)
+		percentage_ser = percentage_ser[percentage_ser < 0]
+		percentage_ser = percentage_ser.apply(lambda x: x if x > -100 else -100)
+		percentage_ser = -1 * percentage_ser.sort_values(ascending = True).head(12)
 		return percentage_ser.to_json()
 	else:
 		##ДЛЯ ДРУГИХ УРОВНЕЙ
