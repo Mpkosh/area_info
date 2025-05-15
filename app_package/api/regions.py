@@ -113,18 +113,21 @@ def migration_data():
     print(last_year , (forecast_until==0) , (given_year==0))
     # если не нужен прогноз, то просто выдаем последний доступный год
     if last_year & (forecast_until==0) & (given_year==0):
-        print('!!', df.columns[0][0])
-        given_year = df.columns[0][0]
+        print('!!', df.columns.levels[0][-1])
+        given_year = df.columns.levels[0][-1]
         
     df_full = DemForecast.get_predictions(df, forecast_until, 
                                           given_year, for_mig=True)
-
+    
     # вычисляем сальдо
+    df_full.index = df_full.index.astype(int)
     difference_df = PopulationInfo.expected_vs_real(df_full,
                                                     morrate_file=file_dir+'morrate.xlsx')
+
     # группируем значения по возрастам
     diff_grouped = PopulationInfo.group_by_age(difference_df, 
                                                n_in_age_group=n_age_groups)
+    diff_grouped = diff_grouped.astype(int)
     if forecast_until>0:
         return Response(diff_grouped.to_json(orient="split"), 
                         mimetype='application/json')

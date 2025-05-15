@@ -93,7 +93,6 @@ def calc_mor_rate(df_ages_1, morrate_file='/population_data/morrateLO.xlsx'):
     df = df_ages_1.copy()
     kmor = get_mor_rate(morrate_file)
     female_clm, male_clm = kmor.columns[1:]
-    
     # умножаем на коэф-т доживания
     df.loc[:,df.columns.get_level_values('пол')=='Женщины'
           ] = df.loc[:,df.columns.get_level_values('пол')=='Женщины'
@@ -116,7 +115,6 @@ def expected_vs_real(df_ages_1, morrate_file='population_data/morrateLO.xlsx'):
     '''
     # данные, умноженные на коэф-т доживания
     df_with_mr = calc_mor_rate(df_ages_1, morrate_file)
-    
     # сдвигаем на год (теперь они находятся в колонке год+1 и под индексом возраст+1)
     to_be_expected = df_with_mr.shift(1).shift(2,axis=1)
     # не учитываем пустые данные: 0 лет и самый первый год (2014)
@@ -139,6 +137,7 @@ def group_by_age(difference_df, n_in_age_group=5):
         Датасет
     '''
     # суммируем по возрастным интервалам
+    difference_df.index = difference_df.index.astype(int)
     df = difference_df.groupby(difference_df.index//n_in_age_group).sum()
     # составляем строки для новых возрастных интервалов
     groups = [f'{i}-{i+n_in_age_group-1}' for i in range(0,101-n_in_age_group, 
