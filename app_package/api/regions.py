@@ -62,21 +62,32 @@ def is_it_true(value):
 @cross_origin()
 def pyramid_data():
     forecast_until = request.args.get('forecast_until', type = int, default=0)
-    given_year = request.args.get('given_year', type = int, default=2020)
+    given_year = request.args.get('given_year', type = int, default=0)
     territory_id = request.args.get('territory_id', type = int, default=34)
     n_age_groups = request.args.get('n_age_groups', type = int, default=5)
     unpack_after_70 = request.args.get('unpack_after_70', type = is_it_true, default=False)
-   
-    session = requests.Session()
-    df = PopInfoForAPI.get_detailed_pop(session, territory_id, 
-                                        unpack_after_70=unpack_after_70, last_year=False, 
-                                        specific_year=0)
+    last_year = request.args.get('last_year', type = is_it_true, default=True)
     
+
+    session = requests.Session()
+
+    df = PopInfoForAPI.get_detailed_pop(session, territory_id, 
+                                        unpack_after_70=unpack_after_70, last_year=last_year, 
+                                        specific_year=given_year)
+    
+    print(last_year , (forecast_until==0) , (given_year==0))
+    
+    # если не нужен прогноз, то просто выдаем последний доступный год
+    if last_year & (forecast_until==0) & (given_year==0):
+        print('!!', df.columns.levels[0][-1])
+        given_year = df.columns.levels[0][-1]
+        
     df = DemForecast.get_predictions(df, forecast_until, given_year)
     age_groups_df = PopulationInfo.age_groups(df, n_in_age_group=n_age_groups)
 
     # чтобы мужчины были слева графика
     age_groups_df.iloc[:,::2] *= -1
+    age_groups_df = age_groups_df.astype(int)
     age_groups_df.index = age_groups_df.index.astype(str)
     
     return Response(age_groups_df.to_json(orient="split"), 
@@ -87,15 +98,24 @@ def pyramid_data():
 @cross_origin()
 def migration_data():
     forecast_until = request.args.get('forecast_until', type = int, default=0)
-    given_year = request.args.get('given_year', type = int, default=2020)
+    given_year = request.args.get('given_year', type = int, default=0)
     territory_id = request.args.get('territory_id', type = int, default=34)
     n_age_groups = request.args.get('n_age_groups', type = int, default=5)
+    unpack_after_70 = request.args.get('unpack_after_70', type = is_it_true, default=False)
+    last_year = request.args.get('last_year', type = is_it_true, default=True)
     
     session = requests.Session()
     
     df = PopInfoForAPI.get_detailed_pop(session, territory_id, 
-                                        unpack_after_70=True, last_year=False, 
-                                        specific_year=0)
+                                        unpack_after_70=unpack_after_70, last_year=last_year, 
+                                        specific_year=given_year)
+    
+    print(last_year , (forecast_until==0) , (given_year==0))
+    # если не нужен прогноз, то просто выдаем последний доступный год
+    if last_year & (forecast_until==0) & (given_year==0):
+        print('!!', df.columns[0][0])
+        given_year = df.columns[0][0]
+        
     df_full = DemForecast.get_predictions(df, forecast_until, 
                                           given_year, for_mig=True)
 

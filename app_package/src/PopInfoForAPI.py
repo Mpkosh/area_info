@@ -382,25 +382,29 @@ def last_pop_and_dnst(session, current_territory, dnst=False, both=False):
         current_territory.pop_all = pop_value
         
         
-def get_detailed_pop(session, territory_id, unpack_after_70=True, last_year=True, specific_year=0):
+def get_detailed_pop(session, territory_id, unpack_after_70=True, 
+                     last_year=True, specific_year=0):
     url = social_api + f'indicators/2/{territory_id}/detailed'
     print('get_detailed_pop', unpack_after_70)
     r = session.get(url)
     if r.status_code == 200:
         df_from_json = pd.DataFrame(r.json())
-        if specific_year>2018:
+        given_years = df_from_json.year.sort_values().values
+        
+        '''
+        print(given_years)
+        if specific_year!=0:
             given_years = [specific_year]
         elif last_year:
-            given_years = [df_from_json['year'].max()]
-        else:
-            given_years = df_from_json.year.sort_values().values
-
+            given_years = [given_years.max()]
+            
+        '''
+        print(given_years)
         df = prepro_from_api(df_from_json, 
                              given_years = given_years, 
                              unpack_after_70=unpack_after_70)
     else:
         df = pd.DataFrame()
-        
     return df
 
 
