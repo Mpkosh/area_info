@@ -39,38 +39,29 @@ def get_all_children_data(session, territory_id=34, from_api=True):
 
 
 def clip_all_children(all_children, p_id=34):
+    p_id = int(p_id)
+    
     a = all_children.copy()
     a['centre_point'] = a['centre_point'].apply(lambda x: create_point(x))
     a = a.drop(columns='geometry').set_geometry('centre_point')
-    
-    # объединим, чтобы для каждого ГП/СП был один полигон
-    #gpsp_with_kids = a[a.level==5].dissolve(by='parent.name')
-    #gpsp_with_kids = a[a['parent.id']==int(p_id)].dissolve(by='parent.name')
+
     gpsp_with_kids = a[a['parent.id']!=int(p_id)].dissolve(by='parent.id')
     
     # для ЛенОбласти будет непустое
     gpsp_with_parent = a[(a.level==4)&(a['parent.id']!=int(p_id))][['territory_id','name',
                                                            'level','parent.id','parent.name']]
 
-    if gpsp_with_parent.shape[0]:
+    # если после удаления родителя разные уровни, то там минимум иерархия из двух уровней
+    # т.е. можно объединять точки последнего уровня на основе уровня выше 
+    if a[a['parent.id']!=p_id].level.unique().shape[0]>1:
+
         buff = gpsp_with_kids[['centre_point']].merge(gpsp_with_parent,
                                       left_index=True, 
                                       right_on='territory_id'
                                       ).dissolve(by='parent.id')
     else:
         buff = gpsp_with_kids
-    '''
-    # вручную режем по границе КАЖДОГО ГП/СП, 
-    # тк если на втором месте в .clip() - датафрейм, то режет по его общей внешней границе
-    gp_sp_orig = a[a.level==4].set_crs(epsg=4326).sort_values(by='name')
-    
-    np_clipped = pd.DataFrame()
-    for i in range(buff.shape[0]):
-        clipped = gpd.clip(buff.iloc[i:i+1], 
-                             gp_sp_orig.iloc[i:i+1]
-                            )
-        np_clipped = pd.concat([np_clipped,clipped])
-    '''
+
     return buff
 
 
@@ -152,22 +143,22 @@ def get_density_data(session, territory_id=34, from_api=False):
 
     #    Данные о всех населенных пунктах
     all_children = get_all_children_data(session, territory_id, from_api)
-    # вручную режем по границе КАЖДОГО ГП/СП
-    np_clipped = clip_all_children(all_children, p_id=territory_id)
     
-    #vills_in_area = np_clipped.reset_index().set_crs(epsg=4326)[['parent.name','centre_point']]
     
-    vills_in_area = np_clipped.reset_index().set_crs(epsg=4326)[['parent.id','centre_point']]
+    # если нет делений меньше (например, работаем с городом, и он не делится дальше)
+    if set(df.territory_id.values) == set(all_children.territory_id.values):
+        fin_vills_full = df.merge(all_children[['territory_id','parent.id','centre_point'
+                                               ]], on='territory_id')
+        fin_vills_full['centre_point'] = fin_vills_full['centre_point'
+                                                        ].apply(lambda x: create_point(x))
+    else:
+        # вручную режем по границе КАЖДОГО ГП/СП
+        np_clipped = clip_all_children(all_children, p_id=territory_id)
     
-    '''
-    # деревни в виде точек
-    children = all_children[all_children.level==5].copy()
-    children['centre_point'] = children['centre_point'].apply(lambda x: create_point(x))
-    vills_in_area = children.reset_index().set_crs(epsg=4326)[['parent.name','centre_point']]
-    '''
-
-    #fin_vills_full = df.merge(vills_in_area, left_on='name', right_on='parent.name')
-    fin_vills_full = df.merge(vills_in_area, left_on='territory_id', right_on='parent.id')
+        vills_in_area = np_clipped.reset_index().set_crs(epsg=4326
+                                                        )[['parent.id','centre_point']]
+        fin_vills_full = df.merge(vills_in_area, left_on='territory_id', 
+                                  right_on='parent.id')
     
     return df, fin_vills_full, all_children
 
