@@ -225,22 +225,16 @@
           "Module 21"
         ],
         "summary": "Migration information (recent year): num in/out, factors",
-        "description": "\n## Get Migration information of the territory and its subtree.\n**NOTE 1:** Given territory should have a territory type 1, 2 or 3.\n\n**NOTE 2:** Migration destinations are available for years 2019-2022 and show_level<4 (2019-2023 for territory type 1).\n\n**Parameters**:\n* **territory_id** (int, Query): Unique identifier of the territory.\n* **show_level** (int, Query): Which territory types to show. **Note:** less or equal to the given territory's type.\n* **mig_destinations** (bool, Query): Include migration destinations info.\n* **change_lo_level** (bool, Query): Group auxiliary areas one level higher.\n* **from_file** (bool, Query): Use prepared geometries. **Note**: for show_level=1.\n\n**Returns**: \n* **GeoJSONResponse[Feature[FeatureGeometry]]**: \n  * geometry: territory coordinates.\n  * properties: territory id, territory name, centre point, incoming migrants, outcoming migrants, population, 27 migration factors.\n\n* if mig_destinations; **GeoJSONResponse[Feature[FeatureGeometry]]**:\n  * geometry: territory coordinates.\n  * properties: territory id, total incoming migrants, total outgoing migrants, territory name.\n\n* if mig_destinations; **GeoJSONResponse[Feature[FeatureGeometry]]**:\n  * geometry: line between centre points.\n  * properties: from territory id, to territory id, number of migrants.",
+        "description": "\n## Get Migration information of the territory and its subtree.\n**NOTE 1:** Given territory should have a level 1, 2 or 3; mig_destinations=True currently breaks if down_by results in level 4.\n\n**NOTE 2:** Migration destinations are available for years 2019-2022 (2019-2023 for level 1).\n\n**Parameters**:\n* **territory_id** (int, Query): Unique identifier of the territory.\n* **down_by** (int, Query): How many levels to go down from the given territory; down_by=0 gives the original territory\n* **mig_destinations** (bool, Query): Include migration destinations info.\n\n**Returns**: \n* **GeoJSONResponse[Feature[FeatureGeometry]]**: \n  * geometry: territory coordinates.\n  * properties: territory id, territory name, centre point, incoming migrants, outcoming migrants, population, 27 migration factors.\n\n* if mig_destinations; **GeoJSONResponse[Feature[FeatureGeometry]]**:\n  * geometry: territory coordinates.\n  * properties: territory id, total incoming migrants, total outgoing migrants, territory name.\n\n* if mig_destinations; **GeoJSONResponse[Feature[FeatureGeometry]]**:\n  * geometry: line between centre points.\n  * properties: from territory id, to territory id, number of migrants.\n  ",
         "parameters": [
           {
             "$ref": "#/components/parameters/territory_id"
           },
           {
-            "$ref": "#/components/parameters/show_level"
+            "$ref": "#/components/parameters/down_by"
           },
           {
             "$ref": "#/components/parameters/mig_destinations"
-          },
-          {
-            "$ref": "#/components/parameters/change_lo_level"
-          },
-          {
-            "$ref": "#/components/parameters/from_file"
           }
         ],
         "responses": {
@@ -263,7 +257,7 @@
           "Module 21"
         ],
         "summary": "Migration detailed information (all years): num in/out, types, factors",
-        "description": "## Get detailed migration information of the territory.\n**NOTE 1:** Given territory should have a territory type 1, 2 or 3.\n\n**NOTE 2:** Migration destinations are available for years 2019-2022 (2019-2023 for territory type 1).\n\n**Parameters**:\n* **territory_id** (int, Query): Unique identifier of the territory.\n* **mig_destinations** (bool, Query): Include migration destinations info.\n* **change_lo_level** (bool, Query): Group auxiliary areas one level higher.\n* **given_year** (int, Query): Show migration destinations for a given year.\n* **from_file** (bool, Query): Use prepared geometries. **Note**: for show_level=1.\n\n**Returns**: \n* **Array[JSONResponse]**: \n  * year, inflow/outflow of migrants from 8 destinations (across russia, outside region, inside region, international, interregional, total, other countries, CIS counries), population, 27 migration factors.\n\n* if mig_destinations; **GeoJSONResponse[Feature[FeatureGeometry]]**:\n  * geometry: territory coordinates.\n  * properties: territory id, total incoming migrants, total outgoing migrants, territory name.\n\n* if mig_destinations; **GeoJSONResponse[Feature[FeatureGeometry]]**:\n  * geometry: line between centre points.\n  * properties: from territory id, to territory id, number of migrants.",
+        "description": "## Get detailed migration information of the territory.\n**NOTE 1:** Given territory should have a level 1, 2 or 3; mig_destinations=True currently works for level 1 or 2.\n\n**NOTE 2:** Migration destinations are available for years 2019-2022 (2019-2023 for level 1).\n\n**Parameters**:\n* **territory_id** (int, Query): Unique identifier of the territory.\n* **mig_destinations** (bool, Query): Include migration destinations info.\n* **given_year** (int, Query): Show migration destinations for a given year.\n\n**Returns**: \n* **Array[JSONResponse]**: \n  * year, inflow/outflow of migrants from 8 destinations (across russia, outside region, inside region, international, interregional, total, other countries, CIS counries), population, 27 migration factors.\n\n* if mig_destinations; **GeoJSONResponse[Feature[FeatureGeometry]]**:\n  * geometry: territory coordinates.\n  * properties: territory id, total incoming migrants, total outgoing migrants, territory name.\n\n* if mig_destinations; **GeoJSONResponse[Feature[FeatureGeometry]]**:\n  * geometry: line between centre points.\n  * properties: from territory id, to territory id, number of migrants.",
         "parameters": [
           {
             "$ref": "#/components/parameters/territory_id"
@@ -272,13 +266,7 @@
             "$ref": "#/components/parameters/mig_destinations"
           },
           {
-            "$ref": "#/components/parameters/change_lo_level"
-          },
-          {
             "$ref": "#/components/parameters/given_year"
-          },
-          {
-            "$ref": "#/components/parameters/from_file"
           }
         ],
         "responses": {
@@ -680,6 +668,7 @@
           "returns geojson"
         ],
         "summary": "Population density by parent id; children with separate geometry",
+        "description": "## Get population density by parent id with children geometries.\n**NOTE:** Given territory should have a level 1, 2 or 3.\n\n**Parameters**:\n* **territory_id** (int, Query): Unique identifier of the territory.\n\n**Returns**: \n* **GeoJSONResponse[Feature[FeatureGeometry]]**: \n  * geometry: territory coordinates.\n  * properties: population per year, territory id, territory name, density per year, density per year binned, merged geometry for child territories.\n  ",
         "parameters": [
           {
             "$ref": "#/components/parameters/parent_id"
@@ -736,12 +725,16 @@
           "returns json"
         ],
         "summary": "Age-sex pyramid",
+        "description": "## Get an age-sex pyramid for a given territory.\n**NOTE 1:** Given territory should have a level 1 or 2.\n\n**NOTE 2:** Forecasts can be made if at least 2 years of data are available.\n\n**Parameters**:\n* **territory_id** (int, Query): Unique identifier of the territory.\n* **given_year** (int, Query): Data for a specific year; if a given year is larger than the last available one, the forecast is made.\n* **forecast_until** (int, Query): Data until a specific year.\n* **n_age_groups** (int, Query): How many ages are grouped in one age interval; n_age_groups=5 gives age intervals 0-4, 5-9, ...\n\n**Returns**: \n* **JSONResponse**: \n  * year and sex, age interval, count.",
         "parameters": [
           {
             "$ref": "#/components/parameters/territory_id"
           },
           {
-            "$ref": "#/components/parameters/given_year"
+            "$ref": "#/components/parameters/given_year0"
+          },
+          {
+            "$ref": "#/components/parameters/forecast_until0"
           },
           {
             "$ref": "#/components/parameters/n_age_groups"
@@ -767,12 +760,16 @@
           "returns json"
         ],
         "summary": "Migration estimate",
+        "description": "## Get a migration estimate for a given territory.\n**NOTE 1:** Given territory should have a level 1 or 2.\n\n**NOTE 2:** Forecasts can be made if at least 2 years of data are available.\n\n**Parameters**:\n* **territory_id** (int, Query): Unique identifier of the territory.\n* **given_year** (int, Query): Data for a specific year; if a given year is larger than the last available one, the forecast is made.\n* **forecast_until** (int, Query): Data until a specific year.\n* **n_age_groups** (int, Query): How many ages are grouped in one age interval; n_age_groups=5 gives age intervals 0-4, 5-9, ...\n\n**Returns**: \n* **JSONResponse**: \n  * year and sex, age interval, count.",
         "parameters": [
           {
             "$ref": "#/components/parameters/territory_id"
           },
           {
-            "$ref": "#/components/parameters/given_year"
+            "$ref": "#/components/parameters/given_year0"
+          },
+          {
+            "$ref": "#/components/parameters/forecast_until0"
           },
           {
             "$ref": "#/components/parameters/n_age_groups"
@@ -804,6 +801,9 @@
           },
           {
             "$ref": "#/components/parameters/given_year"
+          },
+          {
+            "$ref": "#/components/parameters/forecast_until0"
           }
         ],
         "responses": {
@@ -913,6 +913,16 @@
           "type": "integer"
         }
       },
+      "down_by": {
+        "name": "down_by",
+        "default": 0,
+        "in": "query",
+        "description": "How many levels to go down.",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      },
       "show_level_2": {
         "name": "show_level",
         "default": 4,
@@ -936,6 +946,16 @@
       "given_year": {
         "name": "given_year",
         "default": 2022,
+        "in": "query",
+        "description": "Data for a given year",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "given_year0": {
+        "name": "given_year",
+        "default": 0,
         "in": "query",
         "description": "Data for a given year",
         "required": true,
@@ -2112,7 +2132,7 @@
           "avgsalary": {
             "type": "number",
             "example": 36.41
-          },
+          }
         }
       },
       "detailed_info_200": {

@@ -74,12 +74,10 @@ def pyramid_data():
     df = PopInfoForAPI.get_detailed_pop(session, territory_id, 
                                         unpack_after_70=unpack_after_70, last_year=last_year, 
                                         specific_year=given_year)
-    
-    print(last_year , (forecast_until==0) , (given_year==0))
-    
+
+
     # если не нужен прогноз, то просто выдаем последний доступный год
     if last_year & (forecast_until==0) & (given_year==0):
-        print('!!', df.columns.levels[0][-1])
         given_year = df.columns.levels[0][-1]
         
     df = DemForecast.get_predictions(df, forecast_until, given_year)
@@ -110,10 +108,8 @@ def migration_data():
                                         unpack_after_70=unpack_after_70, last_year=last_year, 
                                         specific_year=given_year)
     
-    print(last_year , (forecast_until==0) , (given_year==0))
     # если не нужен прогноз, то просто выдаем последний доступный год
     if last_year & (forecast_until==0) & (given_year==0):
-        print('!!', df.columns.levels[0][-1])
         given_year = df.columns.levels[0][-1]
         
     df_full = DemForecast.get_predictions(df, forecast_until, 
@@ -367,11 +363,12 @@ def factor_best():
 @cross_origin()
 def main_migr():
     territory_id = request.args.get('territory_id', type = int, default=34)
-    show_level = request.args.get('show_level', type = int, default=2)
+    #show_level = request.args.get('show_level', type = int, default=2)
     down_by = request.args.get('down_by', type = int, default=0)
     with_mig_dest = request.args.get('mig_destinations', type = is_it_true, default=False)
-    change_lo_level = request.args.get('change_lo_level', type = is_it_true, default=True)
-    from_file = request.args.get('from_file', type = is_it_true, default=False)
+    
+    change_lo_level = False#request.args.get('change_lo_level', type = is_it_true, default=True)
+    from_file = False#request.args.get('from_file', type = is_it_true, default=False)
     
     result = MigInfoForAPI.info(territory_id=territory_id, 
                                 down_by=down_by, 
@@ -397,8 +394,10 @@ def detailed_migr():
     territory_id = request.args.get('territory_id', type = int, default=34)
     with_mig_dest = request.args.get('mig_destinations', type = is_it_true, default=False)
     md_year = request.args.get('given_year', type = int, default=2022)
-    from_file = request.args.get('from_file', type = is_it_true, default=True)
     mig_other_regions = request.args.get('mig_other_regions', type = is_it_true, default=False)
+    
+    from_file = False #request.args.get('from_file', type = is_it_true, default=True)
+    
 
     result = MigInfoForAPI.info(territory_id=territory_id, 
                                 detailed=True, 
