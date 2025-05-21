@@ -162,6 +162,7 @@ def info(territory_id, show_level=0, down_by=0, detailed=False,
             # НО! все равно нужны все территории ТОГО же региона в том же разрезе, 
             # но сгруппированные на уровень выше
             # и если выше не будет регион России, тк за рамки региона здесь не выходим!
+            work_with = current_territory
 
             print('other areas would be? >2 ', current_territory.level + down_by - 1)
             if (current_territory.level!=2) & (current_territory.level + down_by - 1 > 2):
@@ -220,7 +221,8 @@ def info(territory_id, show_level=0, down_by=0, detailed=False,
             if current_territory.level > 2:
 
                 from_to_geom_regions, \
-                    from_to_lines_regions = mig_dest_prepared_regions(show_level=show_level, 
+                    from_to_lines_regions = mig_dest_prepared_regions(down_by=down_by, 
+                                                                      work_with=work_with,
                                                     fin_df_m=fin_df, 
                                                     current_territory=current_territory,
                                                     change_lo_level=change_lo_level,
@@ -339,6 +341,8 @@ def info(territory_id, show_level=0, down_by=0, detailed=False,
             # и если выше не будет регион России, тк за рамки региона здесь не выходим!
             else:
                 siblings = []
+                
+            work_with = current_territory
             
             print('other areas would be? >2 ', current_territory.level + down_by - 1)
             if (current_territory.level!=2) & (current_territory.level + down_by - 1 > 2):
@@ -347,7 +351,6 @@ def info(territory_id, show_level=0, down_by=0, detailed=False,
                 print('HOW MANY LEVELS to go up to get to region (2)? => ', n_up)
                 #print(current_territory.parent.name)
                 
-                work_with = current_territory
                 for wave in range(n_up):
                     if work_with.parent == 0 :
                         get_parent(session, work_with)
@@ -454,7 +457,7 @@ def np_parents_pop(current_territory, md_year):
     return prop
 
 
-def mig_dest_prepared_regions(show_level,
+def mig_dest_prepared_regions(down_by, work_with, 
                        fin_df_m, current_territory,                            
                        change_lo_level=False, md_year=2022, 
                        from_file=False, working_with_np=False):
@@ -462,7 +465,7 @@ def mig_dest_prepared_regions(show_level,
     # берем инф-ию о миграции заданной терр-рии
     dd = pd.read_csv(file_path+'mig_types_19-22.csv')
     dd['oktmo'] = dd['oktmo'].astype(str)
-    j = dd[(dd.oktmo == current_territory.oktmo) & (dd.year==2022)]
+    j = dd[(dd.oktmo == current_territory.oktmo) & (dd.year==md_year)]
 
     Ext_in = j['total_inflow'] - j['reg_inflow']
     Ext_out = j['total_outflow'] - j['reg_outflow']
@@ -472,21 +475,30 @@ def mig_dest_prepared_regions(show_level,
     #Ext_out = j["Исходящая. Миграция всего"]-j["Исходящая. Внутрирегиональная"]
     
     saldo = pd.read_csv(file_path+ 'obl_mig_no_tid_19-23.csv', index_col=0)
-    saldo0 = saldo[saldo.year==md_year].reset_index(drop=True).drop(columns=['year', 'lat','lon'])
+    if 'lat' in saldo.columns:
+        to_drop = ['year', 'lat','lon']
+    else:
+        to_drop = ['year']
+    saldo0 = saldo[saldo.year==md_year].reset_index(drop=True).drop(columns=to_drop)
     
     # в списке регионов меняем ЛО на данную территорию
-    print(current_territory.parent.territory_id)
-    print('PARENT NAME CHANGEE ', current_territory.parent.name)
-    home_str = current_territory.parent.name #'Ленинградская область'
+    print('PARENT NAME CHANGEE ', work_with.name)
+    n_up = current_territory.level-2
+    temp_ct = current_territory
+    for i in range(n_up):
+        home_str = temp_ct.parent.name #'Ленинградская область'
+        temp_ct = temp_ct.parent
+    print('PARENT NAME CHANGEE ', home_str)    
+    
     home=saldo0[saldo0.name==home_str].reset_index(drop=True)
 
     kin = (home.Int_in/(home.Int_in+home.Int_out)).values[0]
     kout = (home.Ext_in/(home.Ext_in+home.Ext_out)).values[0]
-    print(j)
-    curr_ter_info = [current_territory.name, int(Ext_in*kin), int(Ext_in*(1-kin)), 
+
+    curr_ter_info = [int(Ext_in*kin), int(Ext_in*(1-kin)), 
                      int(Ext_out*kout), int(Ext_out*(1-kout)),
-                     current_territory.name, current_territory.territory_id, 
-                     current_territory.territory_id]
+                     current_territory.territory_id, current_territory.name, 
+                     current_territory.oktmo]
     saldo0.loc[saldo0.name==home_str,:] = curr_ter_info
     
     # строим граф
