@@ -51,8 +51,11 @@ def get_profiles(territory_id, forecast_until=0, given_year=2023):
     pop_df = get_predictions(pop_df, forecast_until, given_year)
     # ____ Численность всех групп
     soc_groups=['14-15',
-                '16-59', '16-17', '18-59',
-                '60-100', '60-75','75-100']
+                #'16-59', 
+                '16-17', 
+                '18-59',
+                #'60-100', 
+                '60-75','75-100']
     soc_pyramid = []
 
     for age_group in soc_groups:
