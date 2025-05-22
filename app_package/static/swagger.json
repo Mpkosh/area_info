@@ -671,7 +671,7 @@
           "returns geojson"
         ],
         "summary": "Population density by parent id; children with separate geometry",
-        "description": "## Get population density by parent id with children geometries.\n**NOTE:** Given territory should have a level 1, 2 or 3.\n\n**Parameters**:\n* **territory_id** (int, Query): Unique identifier of the territory.\n\n**Returns**: \n* **GeoJSONResponse[Feature[FeatureGeometry]]**: \n  * geometry: territory coordinates.\n  * properties: population per year, territory id, territory name, density per year, density per year binned, merged geometry for child territories.\n  ",
+        "description": "## Get population density by parent id with children geometries.\n**NOTE:** Given territory should have a level 1, 2 or 3.\n\n**Parameters**:\n* **parent_id** (int, Query): Unique identifier of the parent territory.\n\n**Returns**: \n* **GeoJSONResponse[Feature[FeatureGeometry]]**: \n  * geometry: territory coordinates.\n  * properties: population per year, territory id, territory name, density per year, density per year binned, merged geometry for child territories.\n  ",
         "parameters": [
           {
             "$ref": "#/components/parameters/parent_id"
@@ -728,7 +728,7 @@
           "returns json"
         ],
         "summary": "Age-sex pyramid",
-        "description": "## Get an age-sex pyramid for a given territory.\n**NOTE 1:** Given territory should have a level 1 or 2.\n\n**NOTE 2:** Forecasts can be made if at least 2 years of data are available.\n\n**Parameters**:\n* **territory_id** (int, Query): Unique identifier of the territory.\n* **given_year** (int, Query): Data for a specific year; if a given year is larger than the last available one, the forecast is made.\n* **forecast_until** (int, Query): Data until a specific year.\n* **n_age_groups** (int, Query): How many ages are grouped in one age interval; n_age_groups=5 gives age intervals 0-4, 5-9, ...\n\n**Returns**: \n* **JSONResponse**: \n  * year and sex, age interval, count.",
+        "description": "## Get an age-sex pyramid for a given territory.\n**NOTE 1:** Uses an age-sex pyramid from soc_demo api (usually available for levels 1, 2 or 3); otherwise data is estimated based on the closest parent with available data.\n\n**NOTE 2:** Forecasts can be made if at least 2 years of data are available.\n\n**Parameters**:\n* **territory_id** (int, Query): Unique identifier of the territory.\n* **given_year** (int, Query): Data for a specific year; if a given year is larger than the last available one, the forecast is made.\n* **forecast_until** (int, Query): Data until a specific year.\n* **n_age_groups** (int, Query): How many ages are grouped in one age interval; n_age_groups=5 gives age intervals 0-4, 5-9, ...\n\n**Returns**: \n* **JSONResponse**: \n  * year and sex, age interval, count.",
         "parameters": [
           {
             "$ref": "#/components/parameters/territory_id"
@@ -763,7 +763,7 @@
           "returns json"
         ],
         "summary": "Migration estimate",
-        "description": "## Get a migration estimate for a given territory.\n**NOTE 1:** Given territory should have a level 1 or 2.\n\n**NOTE 2:** Forecasts can be made if at least 2 years of data are available.\n\n**Parameters**:\n* **territory_id** (int, Query): Unique identifier of the territory.\n* **given_year** (int, Query): Data for a specific year; if a given year is larger than the last available one, the forecast is made.\n* **forecast_until** (int, Query): Data until a specific year.\n* **n_age_groups** (int, Query): How many ages are grouped in one age interval; n_age_groups=5 gives age intervals 0-4, 5-9, ...\n\n**Returns**: \n* **JSONResponse**: \n  * year and sex, age interval, count.",
+        "description": "## Get a migration estimate for a given territory.\n**NOTE 1:** Uses an age-sex pyramid from soc_demo api (usually available for levels 1, 2 or 3); otherwise data is estimated based on the closest parent with available data.\n\n**NOTE 2:** Forecasts can be made if at least 2 years of data are available.\n\n**Parameters**:\n* **territory_id** (int, Query): Unique identifier of the territory.\n* **given_year** (int, Query): Data for a specific year; if a given year is larger than the last available one, the forecast is made.\n* **forecast_until** (int, Query): Data until a specific year.\n* **n_age_groups** (int, Query): How many ages are grouped in one age interval; n_age_groups=5 gives age intervals 0-4, 5-9, ...\n\n**Returns**: \n* **JSONResponse**: \n  * year and sex, age interval, count.",
         "parameters": [
           {
             "$ref": "#/components/parameters/territory_id"

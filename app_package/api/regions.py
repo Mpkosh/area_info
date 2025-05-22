@@ -65,17 +65,23 @@ def pyramid_data():
     given_year = request.args.get('given_year', type = int, default=0)
     territory_id = request.args.get('territory_id', type = int, default=34)
     n_age_groups = request.args.get('n_age_groups', type = int, default=5)
-    unpack_after_70 = request.args.get('unpack_after_70', type = is_it_true, default=False)
+    unpack_after_70 = request.args.get('unpack_after_70', type = is_it_true, 
+                                       default=False)
     last_year = request.args.get('last_year', type = is_it_true, default=True)
     
 
     session = requests.Session()
 
     df = PopInfoForAPI.get_detailed_pop(session, territory_id, 
-                                        unpack_after_70=unpack_after_70, last_year=last_year, 
+                                        unpack_after_70=unpack_after_70, 
+                                        last_year=last_year, 
                                         specific_year=given_year)
-
-
+    
+    # если в БД нет данных по пирамиде
+    if df.shape[0] == 0:
+        df = PopInfoForAPI.estimate_child_pyr(session, territory_id, 
+                                              unpack_after_70, last_year, given_year)
+        
     # если не нужен прогноз, то просто выдаем последний доступный год
     if last_year & (forecast_until==0) & (given_year==0):
         given_year = df.columns.levels[0][-1]
@@ -99,15 +105,21 @@ def migration_data():
     given_year = request.args.get('given_year', type = int, default=0)
     territory_id = request.args.get('territory_id', type = int, default=34)
     n_age_groups = request.args.get('n_age_groups', type = int, default=5)
-    unpack_after_70 = request.args.get('unpack_after_70', type = is_it_true, default=False)
+    unpack_after_70 = request.args.get('unpack_after_70', type = is_it_true, 
+                                       default=False)
     last_year = request.args.get('last_year', type = is_it_true, default=True)
     
     session = requests.Session()
     
     df = PopInfoForAPI.get_detailed_pop(session, territory_id, 
-                                        unpack_after_70=unpack_after_70, last_year=last_year, 
+                                        unpack_after_70=unpack_after_70, 
+                                        last_year=last_year, 
                                         specific_year=given_year)
-    
+    # если в БД нет данных по пирамиде
+    if df.shape[0] == 0:
+        df = PopInfoForAPI.estimate_child_pyr(session, territory_id, 
+                                              unpack_after_70, last_year, given_year)
+        
     # если не нужен прогноз, то просто выдаем последний доступный год
     if last_year & (forecast_until==0) & (given_year==0):
         given_year = df.columns.levels[0][-1]
@@ -148,12 +160,14 @@ def density_data():
     try:
         # берем координаты территорий внутри заданной 
         url = territories_api + 'api/v1/territories'
-        params = {'parent_id':parent_id,'get_all_levels':'false','page':'1','page_size':'1000'}
+        params = {'parent_id':parent_id,'get_all_levels':'false','page':'1',
+                  'page_size':'1000'}
         r = requests.get(url, params = params)
         places_df = pd.DataFrame(r.json()['results'])
         
         if last_only:
-            places_popul = pd.json_normalize(places_df['properties'])['Численность населения'].values
+            places_popul = pd.json_normalize(places_df['properties']
+                                             )['Численность населения'].values
             given_year=2023 # не прописано в ответе, но данные за посл.год
             places_df[given_year] = places_popul
         else:

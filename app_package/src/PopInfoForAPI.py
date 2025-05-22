@@ -12,6 +12,75 @@ terr_api = os.environ.get('TERRITORY_API')
 file_path = 'app_package/src/'
 
 
+def estimate_child_pyr(session, territory_id, unpack_after_70,
+                       last_year, given_year):
+    # получаем численность нашей территории по годам
+    try:
+        url = terr_api + f'api/v1/territory/{territory_id}/indicator_values'
+        params = {'indicator_ids':'1','last_only':'false'}
+        r = session.get(url, params=params)
+        child_pops = pd.DataFrame(r.json())[['date_value','value']]
+        
+        child_pops['date_value'] = child_pops['date_value'].str[:4].astype(int)
+        child_pops = child_pops.set_index('date_value')
+    except:
+        raise requests.exceptions.RequestException(f'Problem with {url}')
+        
+    # получаем id родителя
+    try:
+        url = terr_api + f'api/v1/territory/{territory_id}'
+        r_main = session.get(url).json()
+        parent_id = r_main['parent']['id']
+        level = r_main['level']
+        print('LEVEL:', level)
+        
+        # по идее level-3, тк у уровня 3 уже есть пирамида
+        # но мы уже сделали один поиск родителя выше
+        to_available = level-4
+        print(to_available)
+        for i in range(to_available):
+            url = terr_api + f'api/v1/territory/{parent_id}'
+            r_main = session.get(url).json()
+            parent_id = r_main['parent']['id']
+            
+    except:
+        raise requests.exceptions.RequestException(f'Problem with {url}')
+    
+    print('FINAL PARENT', parent_id)
+    # получаем половозрастную пирамиду родителя
+    df = get_detailed_pop(session, parent_id, unpack_after_70=unpack_after_70, 
+                          last_year=last_year, specific_year=given_year)
+    # данные за какие года?
+    df_years = df.columns.get_level_values(0).unique()
+    # суммарное население по годам
+    df_all_pop = df.abs().T.groupby(level=0).sum(0).sum(1)
+    
+    for year in df_years:
+        # вычисляем долю
+        parent_pyr_fracs = df[year] / df_all_pop[year]
+        
+        # если у ребенка данные начинаются позже; копируем первый год
+        if year < child_pops.index[0]:
+            child_pop = child_pops.iloc[0]
+        # если у ребенка данные заканчиваются раньше; копируем посл.год
+        elif year > child_pops.index[-1]:
+            child_pop = child_pops.iloc[-1]    
+        else:
+            child_pop = child_pops.loc[year]
+        
+        # распределяем население ребенка по долям родительской пирамиды
+        np.random.seed(27) 
+        child_pyr =np.random.multinomial(child_pop, 
+                                         parent_pyr_fracs.values.flatten())
+        # меняем размер: мужчины -- [:,0], женщины [:,1] 
+        # переприсваем в род.пирамиду
+        df[year] = child_pyr.reshape(-1,2)
+    
+        print(year, df[year].sum().sum(),child_pop)
+        
+    return df
+
+
 def to_interval(x):
     x1, x2 = x.iloc[0], x.iloc[1]
     
@@ -399,7 +468,6 @@ def get_detailed_pop(session, territory_id, unpack_after_70=True,
             given_years = [given_years.max()]
             
         '''
-        print(given_years)
         df = prepro_from_api(df_from_json, 
                              given_years = given_years, 
                              unpack_after_70=unpack_after_70)
