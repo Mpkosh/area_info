@@ -43,11 +43,20 @@ def get_predictions(df, forecast_until, given_year):
 
 def get_profiles(territory_id, forecast_until=0, given_year=2023):
     session = requests.Session()
+    unpack_after_70 = False
+    last_year = True
     
     # ____ Половозрастная структура территории
-    pop_df = PopInfoForAPI.get_detailed_pop(session, 
-                                            territory_id, True, False)
-    
+    pop_df = PopInfoForAPI.get_detailed_pop(session, territory_id, True, False)
+    pop_df = PopInfoForAPI.get_detailed_pop(session, territory_id, 
+                                        unpack_after_70=unpack_after_70, 
+                                        last_year=last_year, 
+                                        specific_year=given_year)
+    # если в БД нет данных по пирамиде
+    if pop_df.shape[0] == 0:
+        pop_df = PopInfoForAPI.estimate_child_pyr(session, territory_id, 
+                                                  unpack_after_70, last_year, given_year)
+        
     pop_df = get_predictions(pop_df, forecast_until, given_year)
     # ____ Численность всех групп
     soc_groups=['0-13',
