@@ -671,10 +671,13 @@
           "returns geojson"
         ],
         "summary": "Population density by parent id; children with separate geometry",
-        "description": "## Get population density by parent id with children geometries.\n**NOTE:** Given territory should have a level 1, 2 or 3.\n\n**Parameters**:\n* **parent_id** (int, Query): Unique identifier of the parent territory.\n\n**Returns**: \n* **GeoJSONResponse[Feature[FeatureGeometry]]**: \n  * geometry: territory coordinates.\n  * properties: population per year, territory id, territory name, density per year, density per year binned, merged geometry for child territories.\n  ",
+        "description": "## Get population density by parent id with children geometries.\n**NOTE:** Given territory should have a level 1, 2 or 3.\n\n**Parameters**:\n* **parent_id** (int, Query): Unique identifier of the parent territory.\n* **include_parent** (bool, Query): Include the parent's data.\n\n**Returns**: \n* **GeoJSONResponse[Feature[FeatureGeometry]]**: \n  * geometry: territory coordinates.\n  * properties: population per year, territory id, territory name, density per year, merged geometry for child territories.\n  ",
         "parameters": [
           {
             "$ref": "#/components/parameters/parent_id"
+          },
+          {
+            "$ref": "#/components/parameters/include_parent"
           }
         ],
         "responses": {
@@ -864,6 +867,16 @@
         "required": true,
         "schema": {
           "type": "integer"
+        }
+      },
+      "include_parent": {
+        "name": "include_parent",
+        "default": false,
+        "in": "query",
+        "description": "Include the parent's data.",
+        "required": false,
+        "schema": {
+          "type": "boolean"
         }
       },
       "territory_id_2": {

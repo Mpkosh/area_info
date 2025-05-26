@@ -1,7 +1,4 @@
 import pandas as pd
-from io import BytesIO
-#import glob
-#import plotly.express as px
 import geopandas as gpd
 
 # в geopandas.clip() используется старая версия pandas?  
@@ -16,19 +13,7 @@ def get_area_from_file(geojson_filename='Границы ЛО (только ГП 
              choose_from_files=False, area_files_path='area_files/old/', 
              temp_no_water_file='area_files/Границы_только_МР_Границы_ЛО_Без_воды.geojson'):
 
-    # ищем среди файлов
-    if choose_from_files:    
-        # новые границы ЛО
-        without_water = gpd.read_file(temp_no_water_file)
-        all_files = glob.glob(area_files_path + "/*.geojson")
-        for filename in all_files:
-            if area_name in filename:
-                p_df = gpd.read_file(filename)
-                # обрезаем границы ГП района по новым границам ЛО
-                p_df = gpd.clip(p_df, without_water, keep_geom_type=False)
-    # или читаем заданный
-    else:
-        p_df = gpd.read_file(area_files_path+geojson_filename)
+    p_df = gpd.read_file(area_files_path+geojson_filename)
     
     # оставим только название без "городское поселение"/... 
     clm_area_name = 'name'
@@ -50,9 +35,9 @@ def get_center_point(p_df, clm_area_name='layer', area_name='Гатчински�
   
     
 def calculate_density(p_df):
-    
-    # меняем CRS, чтобы мера длины была метр^2
-    gpd_df = p_df.copy().to_crs(epsg=6933)
+    # сначала придаем crs (в котором !текущие! значения),
+    # потом меняем CRS, чтобы мера длины была метр^2
+    gpd_df = p_df.copy().set_crs(epsg=4326).to_crs(epsg=6933)
     # мера длины -- км^2
     gpd_df["S"] = gpd_df['geometry'].area/ 10**6
     # берем колонки с годами в названии (там лежат данные по населению)

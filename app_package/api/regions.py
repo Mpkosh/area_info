@@ -4,7 +4,7 @@ Created on Wed May 15 14:11:49 2024
 
 @author: user
 """
-from flask import request, send_file, redirect, Response
+from flask import request, redirect, Response
 from flask_cors import CORS, cross_origin
 
 from app_package.api import bp as bp_api
@@ -217,11 +217,13 @@ def density_data():
 @cross_origin()
 def density_data_full():
     parent_id = request.args.get('parent_id', type = str, default=34)
-
+    include_parent = request.args.get('include_parent', type = is_it_true, default=False)
+    
     session = requests.Session()
     
-    full_df = DensityInfo.density_data_geojson(session=session, territory_id=parent_id, 
-                                                 from_api=True)
+    full_df = DensityInfo.density_data_geojson(session=session, 
+                                               territory_id=parent_id, 
+                                               from_api=True, include_parent=include_parent)
     return Response(full_df.to_json(), 
                     mimetype='application/json') 
 
