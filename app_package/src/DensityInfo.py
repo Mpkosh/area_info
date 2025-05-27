@@ -177,7 +177,6 @@ def get_density_data(session, territory_id=34,
     d_with_dnst = AreaOnMapFile.calculate_density(first_children_f)
     df = d_with_dnst.copy()
     
-    '''
     # ставим интервалы и цвета для легенды
     labels_ordered = ['0 — 10','10 — 100','100 — 500','500 — 1 000',
                   '1 000 — 5 000','5 000 — ...']
@@ -193,7 +192,10 @@ def get_density_data(session, territory_id=34,
     
     df[binned_cols] = df[dnst_cols].apply(pd.cut, bins=[0,10,100,500,1000,5000,100000], 
                                           labels=labels_ordered)
-    '''
+    # тк это категории, то мы не можем просто пропуски заполнить нулями
+    df.loc[:,binned_cols] = df.loc[:,binned_cols].astype(str)
+    df[df[binned_cols]=='nan'] = '0'
+    
     #    Данные о всех населенных пунктах
     all_children = get_all_children_data(session, territory_id)
 
