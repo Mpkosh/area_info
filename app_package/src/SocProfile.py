@@ -73,7 +73,7 @@ def get_profiles(territory_id, forecast_until=0, given_year=2023):
         start = int(age_group.split('-')[0])
         finish = int(age_group.split('-')[1])
         soc_pyr_part = pop_df.iloc[start:finish+1]
-        soc_pyramid.append(soc_pyr_part)
+        soc_pyramid.append(soc_pyr_part.astype(int))
     
     citizens_by_age_gr = soc_pyramid
     citizens_with_kids = get_preg_and_with_kids(pop_df)
@@ -124,7 +124,7 @@ def get_preg_and_with_kids(pop_df):
     profiles = pd.read_csv(file_path+'profiles_spb19.csv')
     prof_clms = profiles.columns[profiles.columns.str.endswith('Беременные')]
     # 1. беременные в числах
-    pregnant_n = (pop_df*profiles[prof_clms].values)
+    pregnant_n = (pop_df*profiles[prof_clms].values).astype(int)
     
     # доли одинаковые, тк изначально просто умножали на года
     profile = pd.concat([profiles[prof_clms]]*n_years, axis=1)
@@ -244,7 +244,7 @@ def get_students(pop_df):
                 studs_pyramid.loc[f'{start}':f"{finish}", 
                                   (year, sex_str)] = q
         
-    return studs_pyramid
+    return studs_pyramid.astype(int)
 
     
 def get_with_pets(pop_df):
