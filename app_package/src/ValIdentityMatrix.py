@@ -220,7 +220,7 @@ def muni_tab(territory_id: int, feature_changed = False, changes_dict = "") -> j
 
 		##переводим таблицу индикаторов региона в таблицу значений "клеточек" для региона
 		#для этого загрузим таблицу коэффициентов
-		grid_coeffs = pd.read_json(f'{file_path}grid_coeffs.json').reindex(['dev', 'soc', 'bas'])
+		grid_coeffs = pd.read_json(f'{file_path}grid_coeffs_3.json').reindex(['dev', 'soc', 'bas'])
 		reg_tab = reg_df_to_tab(reg_df, grid_coeffs)
 
 		#нормализуем полученные значения по региону
@@ -327,7 +327,7 @@ def ch_muni_tab(parent_id: int, show_level: int) -> json:
 
 		##переводим таблицу индикаторов региона в таблицу значений "клеточек" для региона
 		#для этого загрузим таблицу коэффициентов
-		grid_coeffs = pd.read_json(f'{file_path}grid_coeffs.json').reindex(['dev', 'soc', 'bas'])
+		grid_coeffs = pd.read_json(f'{file_path}grid_coeffs_3.json').reindex(['dev', 'soc', 'bas'])
 		reg_tab = reg_df_to_tab(reg_df, grid_coeffs)
 
 		#нормализуем полученные значения по региону
@@ -361,7 +361,8 @@ def ch_muni_tab(parent_id: int, show_level: int) -> json:
 		settlements = r.json()
 		for i in range(len(settlements)):
 			settlements[i] = settlements[i]['territory_id']
-		#загружаем таблицу поселений региона
+		#загружаем таблицу поселений реги
+		она
 		reg_df = pd.read_csv(f'{file_path}df_{region_id}_{show_level}.csv', sep = ';', index_col = 0)
 
 		##переводим таблицу индикаторов региона в таблицу значений "клеточек" для региона
@@ -405,6 +406,21 @@ def smart_cell_recommend(val_ident_matrix):
 
 """подраздел рекомендаций по факторам"""
 
+#функция, восстанавливающая исходные значения факторов до нормализации
+def restore_vals(ser):
+	out_ser = copy.deepcopy(ser)
+	norm_dict = pd.read_json(f'{file_path}norm_dict.json', typ = 'series')
+	for col in ['harvest', 'pollutcapturedperc', 'avgemployers', 'avgsalary', 'livarea', 'consnewapt']:
+		out_ser.loc[col] = ser.loc[col] * norm_dict[col]
+	for col in ['agrprod', 'badcompanies', 'beforeschool', 'budincome', 'cinemas', 'circuses', 'cliniccap', 'consnewareas',
+                'cultureorg', 'docsnum', 'factoriescap', 'foodseats', 'foodservturnover', 'funds', 'goodcompanies',
+                'goodcompincome', 'hospitalcap', 'hospitals', 'invest', 'library', 'livestock', 'munipoliceworkers',
+                'musartschool', 'museums', 'naturesecure', 'parks', 'pollutionvol', 'retailturnover', 'roadslen', 'schoolnum',
+                'servicesnum', 'shoparea', 'socialaid', 'socialaidcenterscap', 'sportschool',
+                'sportsvenue', 'theatres', 'visiblecompanies', 'zoos', 'badhousesdwellers']:
+		out_ser.loc[col] = ser.loc[col] * ser.loc['popsize'] * norm_dict[col] / 1000
+	return out_ser
+
 #функция для рекомендаций чисто по тому, какие значения параметров у "лучших" территорий данного уровня
 def factor_recommend(territory_id):
 
@@ -421,9 +437,11 @@ def factor_recommend(territory_id):
 		terr_data.loc['badcompanies'] = -1 * terr_data.loc['badcompanies']
 		terr_data.loc['badhousesdwellers'] = -1 * terr_data.loc['badhousesdwellers']
 		terr_data.loc['pollutionvol'] = -1 * terr_data.loc['pollutionvol']
+		terr_data.loc['funds'] = -1 * terr_data.loc['funds']
 		best_data.loc['badcompanies'] = -1 * best_data.loc['badcompanies']
 		best_data.loc['badhousesdwellers'] = -1 * best_data.loc['badhousesdwellers']
 		best_data.loc['pollutionvol'] = -1 * best_data.loc['pollutionvol']
+		best_data.loc['funds'] = -1 * best_data.loc['funds']
 
 		percentage_ser = ((best_data - terr_data) * 100 / terr_data)
 		percentage_ser = percentage_ser.drop(['roadslen', 'livestock', 'sportschool'])
@@ -431,6 +449,8 @@ def factor_recommend(territory_id):
 		percentage_ser = percentage_ser[(percentage_ser > 0) & (percentage_ser < 1000000000)]
 		percentage_ser = percentage_ser.apply(lambda x: x if x < 100 else 100)
 		percentage_ser = percentage_ser.sort_values(ascending = False).head(12)
+
+		real_vals = restore_vals(terr_data)
 		return percentage_ser.to_json()
 
 	elif level == 4:
@@ -442,8 +462,10 @@ def factor_recommend(territory_id):
 
 		terr_data.loc['badcompanies'] = -1 * terr_data.loc['badcompanies']
 		terr_data.loc['badhousesdwellers'] = -1 * terr_data.loc['badhousesdwellers']
+		terr_data.loc['funds'] = -1 * terr_data.loc['funds']
 		best_data.loc['badcompanies'] = -1 * best_data.loc['badcompanies']
 		best_data.loc['badhousesdwellers'] = -1 * best_data.loc['badhousesdwellers']
+		best_data.loc['funds'] = -1 * best_data.loc['funds']
 		
 		percentage_ser = ((best_data - terr_data) * 100 / terr_data)
 		percentage_ser = percentage_ser.drop(['roadslen', 'livestock', 'sportschool'])
@@ -472,9 +494,11 @@ def factor_best(territory_id):
 		terr_data.loc['badcompanies'] = -1 * terr_data.loc['badcompanies']
 		terr_data.loc['badhousesdwellers'] = -1 * terr_data.loc['badhousesdwellers']
 		terr_data.loc['pollutionvol'] = -1 * terr_data.loc['pollutionvol']
+		terr_data.loc['funds'] = -1 * terr_data.loc['funds']
 		best_data.loc['badcompanies'] = -1 * best_data.loc['badcompanies']
 		best_data.loc['badhousesdwellers'] = -1 * best_data.loc['badhousesdwellers']
 		best_data.loc['pollutionvol'] = -1 * best_data.loc['pollutionvol']
+		best_data.loc['funds'] = -1 * best_data.loc['funds']
 
 		percentage_ser = ((best_data - terr_data) * 100 / terr_data)
 		percentage_ser = percentage_ser.drop(['roadslen', 'livestock', 'sportschool', 'munipoliceworkers'])
@@ -493,8 +517,10 @@ def factor_best(territory_id):
 
 		terr_data.loc['badcompanies'] = -1 * terr_data.loc['badcompanies']
 		terr_data.loc['badhousesdwellers'] = -1 * terr_data.loc['badhousesdwellers']
+		terr_data.loc['funds'] = -1 * terr_data.loc['funds']
 		best_data.loc['badcompanies'] = -1 * best_data.loc['badcompanies']
 		best_data.loc['badhousesdwellers'] = -1 * best_data.loc['badhousesdwellers']
+		best_data.loc['funds'] = -1 * best_data.loc['funds']
 		
 		percentage_ser = ((best_data - terr_data) * 100 / terr_data)
 		percentage_ser = percentage_ser.drop(['roadslen', 'livestock', 'sportschool', 'munipoliceworkers'])
