@@ -173,7 +173,7 @@
           "Module 11"
         ],
         "summary": "Get recommendations on factor improvements",
-        "description": "## Get top-12 recommendations on factor improvements for a territory as a JSON.<br>\n**NOTE**: This request works for now only for districts (level = 3) throughout Russia and for urban/rural settlements (level = 4) of Leningrad region.\n\n\n **Parameters:**<br>\n\n* **territory_id** (int, Query): Unique identifier of the territory.\n\n**Returns:**<br>\n* **JSONResponse[[Factor_to_improve: Improvement_percent],...]:** A JSON response containing factor names and percentages of improvement needed for these factors to improve the satisfaction levels of the residents.\n\n**Notes:**<br>\n* The set of factors to improve is always different for different territories.\n* For factors with negative effects (badcompanies, badhousesdwellers, pollutionvol) the given percentages demonstrate the need for their diminuition.\n* There's a ceiling for improvement percentage: it does not exceed 100.",
+        "description": "## Get top-12 recommendations on factor improvements for a territory as a JSON.<br>\n**NOTE**: This request works for now only for districts (level = 3) throughout Russia and for urban/rural settlements (level = 4) of Leningrad region.\n\n\n **Parameters:**<br>\n\n* **territory_id** (int, Query): Unique identifier of the territory.\n\n**Returns:**<br>\n* **JSONResponse[Increase_need:[[Factor_to_improve: Improvement_percent],...], Real_value:[[Factor_to_improve: Its_real_value],...]]:** A JSON response containing factor names and percentages of improvement needed for these factors to improve the satisfaction levels of the residents; current real values of these factors.\n\n**Notes:**<br>\n* The set of factors to improve is always different for different territories.\n* For factors with negative effects (badcompanies, badhousesdwellers, pollutionvol, funds) the given percentages demonstrate the need for their diminuition.\n* There's a ceiling for improvement percentage: it does not exceed 100.",
         "parameters": [
           {
             "$ref": "#/components/parameters/territory_id_2"
@@ -199,7 +199,7 @@
           "Module 11"
         ],
         "summary": "Get best factor values of the territory compared to successful territories' average values",
-        "description": "## Get the territory's top-12 factors with greatest value excess in percents over average values of successful territories as a JSON.<br>\n**NOTE**: This request works for now only for districts (level = 3) throughout Russia and for urban/rural settlements (level = 4) of Leningrad region.\n\n\n **Parameters:**<br>\n\n* **territory_id** (int, Query): Unique identifier of the territory.\n\n**Returns:**<br>\n* **JSONResponse[[Factor: Excess_percent],...]:** A JSON response containing factor names and percentages of their values' excess over average values of successful territories.\n\n**Notes:**<br>\n* The set of best valued factors is always different for different territories.\n* For factors with negative effects (badcompanies, badhousesdwellers, pollutionvol) the given percentages demonstrate how much less the values of the territory are compared to average values of successful territories.\n* There's a ceiling for percentages: they do not exceed 100.",
+        "description": "## Get the territory's top-12 factors with greatest value excess in percents over average values of successful territories as a JSON.<br>\n**NOTE**: This request works for now only for districts (level = 3) throughout Russia and for urban/rural settlements (level = 4) of Leningrad region.\n\n\n **Parameters:**<br>\n\n* **territory_id** (int, Query): Unique identifier of the territory.\n\n**Returns:**<br>\n* **JSONResponse[Surpass_percent:[[Factor: Excess_percent],...], Real_value:[[Factor: Its_real_value],...]]:** A JSON response containing factor names and percentages of their values' excess over average values of successful territories; current real values of these factors.\n\n**Notes:**<br>\n*The term \"surpass percent\" has been used for simplicity. In fact, the request returns the percents of how much less the values of successful territories are compared to the values of this territory.\n* The set of best valued factors is always different for different territories.\n* For factors with negative effects (badcompanies, badhousesdwellers, pollutionvol, funds) the given percentages demonstrate how much less the values of the territory are compared to average values of successful territories.\n* There's a ceiling for percentages: they do not exceed 100.",
         "parameters": [
           {
             "$ref": "#/components/parameters/territory_id"
@@ -2067,53 +2067,111 @@
         "title": "Sample",
         "type": "object",
         "properties": {
-          "hospitals": {
-            "type": "number",
-            "example": 100
+          "increase_need": {
+            "type": "object",
+            "properties": {
+              "hospitals": {
+                "type": "number",
+                "example": 100
+              },
+              "pollutcapturedperc": {
+                "type": "number",
+                "example": 100
+              },
+              "socialaid": {
+                "type": "number",
+                "example": 100
+              },
+              "schoolnum": {
+                "type": "number",
+                "example": 94.56
+              },
+              "sportsvenue": {
+                "type": "number",
+                "example": 73.06
+              },
+              "hospitalcap": {
+                "type": "number",
+                "example": 54.94
+              },
+              "library": {
+                "type": "number",
+                "example": 34.9
+              },
+              "cliniccap": {
+                "type": "number",
+                "example": 25.22
+              },
+              "pollutionvol": {
+                "type": "number",
+                "example": 22.26
+              },
+              "beforeschool": {
+                "type": "number",
+                "example": 20.59
+              },
+              "badhousesdwellers": {
+                "type": "number",
+                "example": 20.33
+              },
+              "budincome": {
+                "type": "number",
+                "example": 14.4
+              }
+            }
           },
-          "pollutcapturedperc": {
-            "type": "number",
-            "example": 100
-          },
-          "socialaid": {
-            "type": "number",
-            "example": 100
-          },
-          "schoolnum": {
-            "type": "number",
-            "example": 94.56
-          },
-          "sportsvenue": {
-            "type": "number",
-            "example": 73.06
-          },
-          "hospitalcap": {
-            "type": "number",
-            "example": 54.94
-          },
-          "library": {
-            "type": "number",
-            "example": 34.9
-          },
-          "cliniccap": {
-            "type": "number",
-            "example": 25.22
-          },
-          "pollutionvol": {
-            "type": "number",
-            "example": 22.26
-          },
-          "beforeschool": {
-            "type": "number",
-            "example": 20.59
-          },
-          "badhousesdwellers": {
-            "type": "number",
-            "example": 20.33
-          },
-          "budincome": {
-            "type": "number",
-            "example": 14.4
+          "real_value": {
+            "type": "object",
+            "properties": {
+              "hospitals": {
+                "type": "number",
+                "example": 26
+              },
+              "pollutcapturedperc": {
+                "type": "number",
+                "example": 2.9
+              },
+              "socialaid": {
+                "type": "number",
+                "example": 4
+              },
+              "schoolnum": {
+                "type": "number",
+                "example": 17
+              },
+              "sportsvenue": {
+                "type": "number",
+                "example": 167
+              },
+              "hospitalcap": {
+                "type": "number",
+                "example": 333
+              },
+              "library": {
+                "type": "number",
+                "example": 3
+              },
+              "cliniccap": {
+                "type": "number",
+                "example": 1670
+              },
+              "pollutionvol": {
+                "type": "number",
+                "example": 3.752
+              },
+              "beforeschool": {
+                "type": "number",
+                "example": 4346
+              },
+              "badhousesdwellers": {
+                "type": "number",
+                "example": 922
+              },
+              "budincome": {
+                "type": "number",
+                "example": 3384881.1
+              }
+            }
           }
         }
       },
@@ -2121,53 +2179,111 @@
         "title": "Sample",
         "type": "object",
         "properties": {
-          "harvest": {
-            "type": "number",
-            "example": 99.99
+          "surpass_percent": {
+            "type": "object",
+            "properties": {
+              "harvest": {
+                "type": "number",
+                "example": 99.99
+              },
+              "avgemployers": {
+                "type": "number",
+                "example": 92.26
+              },
+              "consnewareas": {
+                "type": "number",
+                "example": 88.26
+              },
+              "consnewapt": {
+                "type": "number",
+                "example": 86.94
+              },
+              "foodservturnover": {
+                "type": "number",
+                "example": 84.93
+              },
+              "goodcompincome": {
+                "type": "number",
+                "example": 82.03
+              },
+              "retailturnover": {
+                "type": "number",
+                "example": 70.71
+              },
+              "invest": {
+                "type": "number",
+                "example": 69.57
+              },
+              "badhousesdwellers": {
+                "type": "number",
+                "example": 56.32
+              },
+              "badcompanies": {
+                "type": "number",
+                "example": 52.77
+              },
+              "naturesecure": {
+                "type": "number",
+                "example": 43.42
+              },
+              "factoriescap": {
+                "type": "number",
+                "example": 38.03
+              }
+            }
           },
-          "avgemployers": {
-            "type": "number",
-            "example": 92.26
-          },
-          "consnewareas": {
-            "type": "number",
-            "example": 88.26
-          },
-          "consnewapt": {
-            "type": "number",
-            "example": 86.94
-          },
-          "foodservturnover": {
-            "type": "number",
-            "example": 84.93
-          },
-          "goodcompincome": {
-            "type": "number",
-            "example": 82.03
-          },
-          "retailturnover": {
-            "type": "number",
-            "example": 70.71
-          },
-          "invest": {
-            "type": "number",
-            "example": 69.57
-          },
-          "funds": {
-            "type": "number",
-            "example": 55.34
-          },
-          "naturesecure": {
-            "type": "number",
-            "example": 43.41
-          },
-          "factoriescap": {
-            "type": "number",
-            "example": 38.03
-          },
-          "avgsalary": {
-            "type": "number",
-            "example": 36.41
+          "real_value": {
+            "type": "object",
+            "properties": {
+              "harvest": {
+                "type": "number",
+                "example": 999999999.9
+              },
+              "avgemployers": {
+                "type": "number",
+                "example": 70096
+              },
+              "consnewareas": {
+                "type": "number",
+                "example": 1777907
+              },
+              "consnewapt": {
+                "type": "number",
+                "example": 19.1
+              },
+              "foodservturnover": {
+                "type": "number",
+                "example": 3159135.6
+              },
+              "goodcompincome": {
+                "type": "number",
+                "example": 69295596
+              },
+              "retailturnover": {
+                "type": "number",
+                "example": 152482868.7
+              },
+              "invest": {
+                "type": "number",
+                "example": 67683531
+              },
+              "badhousesdwellers": {
+                "type": "number",
+                "example": 3627
+              },
+              "badcompanies": {
+                "type": "number",
+                "example": 37
+              },
+              "naturesecure": {
+                "type": "number",
+                "example": 1442565
+              },
+              "factoriescap": {
+                "type": "number",
+                "example": 282755855.5
+              }
+            }
           }
         }
       },

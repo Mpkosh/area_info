@@ -412,12 +412,13 @@ def restore_vals(ser):
 	norm_dict = pd.read_json(f'{file_path}norm_dict.json', typ = 'series')
 	for col in ['harvest', 'pollutcapturedperc', 'avgemployers', 'avgsalary', 'livarea', 'consnewapt']:
 		out_ser.loc[col] = ser.loc[col] * norm_dict[col]
-	for col in ['agrprod', 'badcompanies', 'beforeschool', 'budincome', 'cinemas', 'circuses', 'cliniccap', 'consnewareas',
-                'cultureorg', 'docsnum', 'factoriescap', 'foodseats', 'foodservturnover', 'funds', 'goodcompanies',
-                'goodcompincome', 'hospitalcap', 'hospitals', 'invest', 'library', 'livestock', 'munipoliceworkers',
-                'musartschool', 'museums', 'naturesecure', 'parks', 'pollutionvol', 'retailturnover', 'roadslen', 'schoolnum',
-                'servicesnum', 'shoparea', 'socialaid', 'socialaidcenterscap', 'sportschool',
-                'sportsvenue', 'theatres', 'visiblecompanies', 'zoos', 'badhousesdwellers']:
+	for col in ['badcompanies', 'beforeschool', 'cinemas', 'circuses', 'cultureorg', 'docsnum', 'badhousesdwellers', 'foodseats',
+                'goodcompanies', 'hospitalcap', 'hospitals', 'library', 'livestock', 'munipoliceworkers', 'musartschool', 'museums',
+                'parks', 'schoolnum', 'servicesnum', 'socialaid', 'socialaidcenterscap', 'sportschool', 'sportsvenue', 'theatres',
+                'visiblecompanies', 'zoos']:
+		out_ser.loc[col] = round(ser.loc[col] * ser.loc['popsize'] * norm_dict[col] / 1000)
+	for col in ['agrprod', 'budincome', 'cliniccap', 'consnewareas', 'factoriescap', 'foodservturnover', 'funds',
+                'goodcompincome', 'invest', 'naturesecure', 'pollutionvol', 'retailturnover', 'roadslen', 'shoparea']:
 		out_ser.loc[col] = ser.loc[col] * ser.loc['popsize'] * norm_dict[col] / 1000
 	return out_ser
 
@@ -434,6 +435,9 @@ def factor_recommend(territory_id):
 		terr_data = full_df.loc[oktmo, :]
 		best_data = pd.read_csv(f'{file_path}best_vals_3.csv', sep = ',', index_col = 1).mean_best_value
 
+		#для вывода потом
+		real_vals = restore_vals(terr_data)
+
 		terr_data.loc['badcompanies'] = -1 * terr_data.loc['badcompanies']
 		terr_data.loc['badhousesdwellers'] = -1 * terr_data.loc['badhousesdwellers']
 		terr_data.loc['pollutionvol'] = -1 * terr_data.loc['pollutionvol']
@@ -443,15 +447,17 @@ def factor_recommend(territory_id):
 		best_data.loc['pollutionvol'] = -1 * best_data.loc['pollutionvol']
 		best_data.loc['funds'] = -1 * best_data.loc['funds']
 
-		percentage_ser = ((best_data - terr_data) * 100 / terr_data)
+		percentage_ser = ((best_data - terr_data) * 100 / terr_data.abs())
 		percentage_ser = percentage_ser.drop(['roadslen', 'livestock', 'sportschool'])
 		percentage_ser = percentage_ser.drop(percentage_ser[percentage_ser.isnull()].index)
 		percentage_ser = percentage_ser[(percentage_ser > 0) & (percentage_ser < 1000000000)]
 		percentage_ser = percentage_ser.apply(lambda x: x if x < 100 else 100)
 		percentage_ser = percentage_ser.sort_values(ascending = False).head(12)
 
-		real_vals = restore_vals(terr_data)
-		return percentage_ser.to_json()
+		df_out = pd.DataFrame(percentage_ser)
+		df_out = df_out.join(real_vals, how = 'left')
+		df_out.columns = ['increase_need', 'real_value']
+		return df_out.to_json()
 
 	elif level == 4:
 		
@@ -460,6 +466,9 @@ def factor_recommend(territory_id):
 		terr_data = reg_df.loc[territory_id, :]
 		best_data = pd.read_csv(f'{file_path}best_vals_4.csv', sep = ',', index_col = 1).mean_best_value
 
+		#для вывода потом
+		real_vals = restore_vals(terr_data)
+
 		terr_data.loc['badcompanies'] = -1 * terr_data.loc['badcompanies']
 		terr_data.loc['badhousesdwellers'] = -1 * terr_data.loc['badhousesdwellers']
 		terr_data.loc['funds'] = -1 * terr_data.loc['funds']
@@ -467,13 +476,17 @@ def factor_recommend(territory_id):
 		best_data.loc['badhousesdwellers'] = -1 * best_data.loc['badhousesdwellers']
 		best_data.loc['funds'] = -1 * best_data.loc['funds']
 		
-		percentage_ser = ((best_data - terr_data) * 100 / terr_data)
+		percentage_ser = ((best_data - terr_data) * 100 / terr_data.abs())
 		percentage_ser = percentage_ser.drop(['roadslen', 'livestock', 'sportschool'])
 		percentage_ser = percentage_ser.drop(percentage_ser[percentage_ser.isnull()].index)
 		percentage_ser = percentage_ser[(percentage_ser > 0) & (percentage_ser < 1000000000)]
 		percentage_ser = percentage_ser.apply(lambda x: x if x < 100 else 100)
 		percentage_ser = percentage_ser.sort_values(ascending = False).head(12)
-		return percentage_ser.to_json()
+
+		df_out = pd.DataFrame(percentage_ser)
+		df_out = df_out.join(real_vals, how = 'left')
+		df_out.columns = ['increase_need', 'real_value']
+		return df_out.to_json()
 	else:
 		##ДЛЯ ДРУГИХ УРОВНЕЙ
 		raise ValueError(f'Localities of this level (given: {level}) are not supported in this request')
@@ -491,22 +504,32 @@ def factor_best(territory_id):
 		terr_data = full_df.loc[oktmo, :]
 		best_data = pd.read_csv(f'{file_path}best_vals_3.csv', sep = ',', index_col = 1).mean_best_value
 
+		#для вывода потом
+		real_vals = restore_vals(terr_data)
+
 		terr_data.loc['badcompanies'] = -1 * terr_data.loc['badcompanies']
 		terr_data.loc['badhousesdwellers'] = -1 * terr_data.loc['badhousesdwellers']
 		terr_data.loc['pollutionvol'] = -1 * terr_data.loc['pollutionvol']
 		terr_data.loc['funds'] = -1 * terr_data.loc['funds']
+		print(terr_data)
 		best_data.loc['badcompanies'] = -1 * best_data.loc['badcompanies']
 		best_data.loc['badhousesdwellers'] = -1 * best_data.loc['badhousesdwellers']
 		best_data.loc['pollutionvol'] = -1 * best_data.loc['pollutionvol']
 		best_data.loc['funds'] = -1 * best_data.loc['funds']
+		print(best_data)
 
-		percentage_ser = ((best_data - terr_data) * 100 / terr_data)
+		percentage_ser = ((best_data - terr_data) * 100 / terr_data.abs())
+		print(percentage_ser)
 		percentage_ser = percentage_ser.drop(['roadslen', 'livestock', 'sportschool', 'munipoliceworkers'])
 		percentage_ser = percentage_ser.drop(percentage_ser[percentage_ser.isnull()].index)
 		percentage_ser = percentage_ser[percentage_ser < 0]
 		percentage_ser = percentage_ser.apply(lambda x: x if x > -100 else -100)
 		percentage_ser = -1 * percentage_ser.sort_values(ascending = True).head(12)
-		return percentage_ser.to_json()
+
+		df_out = pd.DataFrame(percentage_ser)
+		df_out = df_out.join(real_vals, how = 'left')
+		df_out.columns = ['surpass_percent', 'real_value']
+		return df_out.to_json()
 
 	elif level == 4:
 		
@@ -515,6 +538,9 @@ def factor_best(territory_id):
 		terr_data = reg_df.loc[territory_id, :]
 		best_data = pd.read_csv(f'{file_path}best_vals_4.csv', sep = ',', index_col = 1).mean_best_value
 
+		#для вывода потом
+		real_vals = restore_vals(terr_data)
+
 		terr_data.loc['badcompanies'] = -1 * terr_data.loc['badcompanies']
 		terr_data.loc['badhousesdwellers'] = -1 * terr_data.loc['badhousesdwellers']
 		terr_data.loc['funds'] = -1 * terr_data.loc['funds']
@@ -522,13 +548,17 @@ def factor_best(territory_id):
 		best_data.loc['badhousesdwellers'] = -1 * best_data.loc['badhousesdwellers']
 		best_data.loc['funds'] = -1 * best_data.loc['funds']
 		
-		percentage_ser = ((best_data - terr_data) * 100 / terr_data)
+		percentage_ser = ((best_data - terr_data) * 100 / terr_data.abs())
 		percentage_ser = percentage_ser.drop(['roadslen', 'livestock', 'sportschool', 'munipoliceworkers'])
 		percentage_ser = percentage_ser.drop(percentage_ser[percentage_ser.isnull()].index)
 		percentage_ser = percentage_ser[percentage_ser < 0]
 		percentage_ser = percentage_ser.apply(lambda x: x if x > -100 else -100)
 		percentage_ser = -1 * percentage_ser.sort_values(ascending = True).head(12)
-		return percentage_ser.to_json()
+
+		df_out = pd.DataFrame(percentage_ser)
+		df_out = df_out.join(real_vals, how = 'left')
+		df_out.columns = ['surpass_percent', 'real_value']
+		return df_out.to_json()
 	else:
 		##ДЛЯ ДРУГИХ УРОВНЕЙ
 		raise ValueError(f'Localities of this level (given: {level}) are not supported in this request')
