@@ -111,6 +111,8 @@ def info(territory_id, show_level=0, down_by=0, detailed=False,
         
         fin_df = pd.DataFrame([])
         fin_df_m = detailed_migration(session, current_territory, fin_df)
+        print('AFTER detailed_migration')
+        print(fin_df_m)
         fin_df = fin_df_m.rename_axis('year').reset_index()
         fin_df = detailed_factors(session, current_territory, fin_df)
         
@@ -591,10 +593,13 @@ def main_migration(session, fin_df):
     fin_df[['younger_in','work_in','old_in',
           'younger_out','work_out','old_out']] = 0
     df['oktmo'] = df['oktmo'].astype(str)
-    
+     
     oktmos = fin_df['oktmo'].values
     needed_part = df[df.year==df.year.max()]
     needed_part = needed_part[needed_part.oktmo.isin(oktmos)]
+    print('needed', oktmos)
+    print(needed_part)
+    print(df[df.oktmo.isin(oktmos)])
     
     # эффективнее сразу для всех, но пока непонятно как
     for oktmo in oktmos:
@@ -776,13 +781,20 @@ def detailed_factors(session, current_territory, fin_df):
     sdf['oktmo'] = sdf['oktmo'].astype(str)
 
     oktmo = current_territory.oktmo
+   
     sdf = sdf[(sdf.oktmo.isin([oktmo]))&(sdf.year>=2019)]
+    
     sdf = sdf.sort_values(by='year').drop(['name', 'saldo'],
                        axis='columns').reset_index(drop=True)
-    
-    fin_df = fin_df.merge(sdf, how='left', on='year')
+    print(sdf)
+    print(fin_df.shape)
+    if fin_df.shape[0] > 0:
+        fin_df = fin_df.merge(sdf, how='left', on='year')
+    else:
+        fin_df = fin_df.merge(sdf, how='right', on='year')
     fin_df = rus_clms_factors(fin_df)
     fin_df = fin_df.rename(columns = {'year':'Год'})
+    print(fin_df)
     return fin_df
 
 
