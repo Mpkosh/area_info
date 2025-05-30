@@ -511,15 +511,12 @@ def factor_best(territory_id):
 		terr_data.loc['badhousesdwellers'] = -1 * terr_data.loc['badhousesdwellers']
 		terr_data.loc['pollutionvol'] = -1 * terr_data.loc['pollutionvol']
 		terr_data.loc['funds'] = -1 * terr_data.loc['funds']
-		print(terr_data)
 		best_data.loc['badcompanies'] = -1 * best_data.loc['badcompanies']
 		best_data.loc['badhousesdwellers'] = -1 * best_data.loc['badhousesdwellers']
 		best_data.loc['pollutionvol'] = -1 * best_data.loc['pollutionvol']
 		best_data.loc['funds'] = -1 * best_data.loc['funds']
-		print(best_data)
 
 		percentage_ser = ((best_data - terr_data) * 100 / terr_data.abs())
-		print(percentage_ser)
 		percentage_ser = percentage_ser.drop(['roadslen', 'livestock', 'sportschool', 'munipoliceworkers'])
 		percentage_ser = percentage_ser.drop(percentage_ser[percentage_ser.isnull()].index)
 		percentage_ser = percentage_ser[percentage_ser < 0]
