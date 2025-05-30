@@ -213,11 +213,9 @@ def add_ages_70_to_100(df):
     # берем интервалы возрастов после 70
     ages_brackets = ['70-74','75-79','80-84','85-89','90-94','95-99',100]
     ages_brackets = list(df[df.index.str.contains('-', na=False)].index.values) +[ 100]
-    
-    print(ages_brackets)
+
     
     years = df.columns.get_level_values(0).unique()#df.columns[1:].values
-    
     for i in range(len(ages_brackets)-1):
         res_both_sex = []
         for sex in ['Женщины','Мужчины']:
@@ -233,17 +231,20 @@ def add_ages_70_to_100(df):
             # раскрываем интервал
             ages = [int(i) for i in ages_brackets[i].split('-')]
             n_ages = ages[1] - ages[0] + 1
-            print(ages, n_ages)
             
             # чем больше разница, тем сильнее перекошены наши вероятности
             probs = np.linspace(first_cohort, next_cohort, num=n_ages)
             probs = probs/probs.sum(0)
-
             res = []
             for prob, pop_size in zip(range(probs.shape[1]),
                                       first_cohort):
-                # раскидываем числа с учетом вероятностей
-                q = np.random.multinomial(pop_size, probs[:,prob], size=1)[0]
+                
+                if probs[:,prob].sum() > 0:
+                    # раскидываем числа с учетом вероятностей
+                    q = np.random.multinomial(pop_size, probs[:,prob], size=1)[0]
+                # если в каком-то возрастном интервале только нули
+                else:
+                    q = [0 for i in range(n_ages)]
                 res.append(q)
 
             # составляем датафрейм и меняем названия колонок и индексов    
