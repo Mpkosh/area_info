@@ -270,12 +270,29 @@ def main_info(session, current_territory, show_level):
 
 def pyramid_info(session, terr_classes, specific_year):
     for child in terr_classes:
-        chosen_class = child
+        #chosen_class = child
+        
+        pop_df = get_detailed_pop(session, child.territory_id, 
+                                    unpack_after_70=False, 
+                                    last_year=False, 
+                                    specific_year=specific_year)
+        
+        # если в БД нет данных по пирамиде
+        if pop_df.shape[0] == 0:
+            pop_df = estimate_child_pyr(session, child.territory_id, 
+                                        unpack_after_70=False, 
+                                        last_year=False, 
+                                        given_year=specific_year)
+        
+       
+        print(pop_df)
+        '''
         # если у ребенка не может быть пирамиды, то постепенно проверяем его родителя
         if child.territory_type <= 2:
             ter_id_for_pyramid = child.territory_id
         else:
             for i in range(child.territory_type-2):
+                print(chosen_class.territory_id)
                 ter_id_for_pyramid = chosen_class.parent.territory_id
                 chosen_class = child.parent
         
@@ -286,10 +303,14 @@ def pyramid_info(session, terr_classes, specific_year):
         #print(f'pyramid from {chosen_class.name}')        
         pop_df = get_detailed_pop(session=session, territory_id=ter_id_for_pyramid, 
                                   unpack_after_70=False, specific_year=specific_year)
-        
+        '''
         if pop_df.shape[0]:
             p_all, p_y, p_w, p_o = groups_3(pop_df)
-            # если брали пирамиду самой территории
+            
+            child.pop_all, child.pop_younger,\
+                child.pop_can_work,child.pop_older = p_all, p_y, p_w, p_o
+            '''
+            если брали пирамиду самой территории
             if ter_id_for_pyramid == child.territory_id:
                 child.pop_all, child.pop_younger,\
                     child.pop_can_work,child.pop_older = p_all, p_y, p_w, p_o
@@ -302,6 +323,7 @@ def pyramid_info(session, terr_classes, specific_year):
                 np.random.seed(27) 
                 child.pop_younger, child.pop_can_work, \
                     child.pop_older = np.random.multinomial(child.pop_all, probs[1:])
+            '''
         else:
             child.pop_younger,child.pop_can_work,child.pop_older = [0,0,0]
             
