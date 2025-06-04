@@ -67,8 +67,8 @@ def estimate_child_pyr(session, territory_id, unpack_after_70,
     
     print('FINAL PARENT', parent_id)
     # получаем половозрастную пирамиду родителя
-    df = get_detailed_pop(session, parent_id, unpack_after_70=unpack_after_70, 
-                          last_year=last_year, specific_year=given_year)
+    #df = get_detailed_pop(session, parent_id, unpack_after_70=unpack_after_70, 
+    #                      last_year=last_year, specific_year=given_year)
     # данные за какие года?
     df_years = df.columns.get_level_values(0).unique()
     # суммарное население по годам
@@ -89,6 +89,7 @@ def estimate_child_pyr(session, territory_id, unpack_after_70,
         
         # распределяем население ребенка по долям родительской пирамиды
         np.random.seed(27) 
+        print(child_pop)
         child_pyr =np.random.multinomial(child_pop, 
                                          parent_pyr_fracs.values.flatten())
         # меняем размер: мужчины -- [:,0], женщины [:,1] 
@@ -206,7 +207,9 @@ def info(territory_id=34, show_level=3, down_by=0, specific_year=2022):
     terr_classes = [current_territory]
     terr_ids = current_territory.df['territory_id'].values
     # если нужен уровень детальнее
+    
     for i in range(n_children):
+        print('down')
         for ter_id, ter_class in zip(terr_ids, terr_classes):
             get_children(session, ter_id, ter_class)
         # новый набор для итерации    
@@ -225,7 +228,8 @@ def info(territory_id=34, show_level=3, down_by=0, specific_year=2022):
     fin_df['pop_all'] = [cl.pop_all for cl in terr_classes]
     fin_df['density'] = [cl.density for cl in terr_classes]
     
-    change = True
+    change = False
+    '''
     if (current_territory.level==5)&(fill_in_4):
         # для НП восполняем тем, что есть; на всякий случай сортируем
         # print('Заполнение колонки pop_all с файла towns.geojson')
@@ -241,12 +245,14 @@ def info(territory_id=34, show_level=3, down_by=0, specific_year=2022):
             #print(child.territory_id, child.name, pop_for_children.loc[child.territory_id])
         except:
             pass
-        
+    '''    
+    
     pyramid_info(session, terr_classes, specific_year)
     
-    if change:
-        fin_df['pop_all'] = [cl.pop_all for cl in terr_classes]
-        
+    #if change:
+    #fin_df['pop_all'] = [cl.pop_all for cl in terr_classes]
+    print(fin_df['pop_all'])    
+    
     fin_df['pop_younger'] = [cl.pop_younger for cl in terr_classes]
     fin_df['pop_can_work'] = [cl.pop_can_work for cl in terr_classes]
     fin_df['pop_older'] = [cl.pop_older for cl in terr_classes]
@@ -308,6 +314,16 @@ def main_info(session, current_territory, down_by):
         last_pop_and_dnst(session, current_territory, dnst=True, both=True)
         
 
+
+def groups_3(x):
+    pop_all = x.sum().sum()
+    pop_younger = x.iloc[:16].sum().sum()
+    pop_can_work= x.iloc[16:61].sum().sum()
+    pop_older = x.iloc[61:].sum().sum()
+    
+    return [pop_all, pop_younger, pop_can_work, pop_older]
+
+
 def pyramid_info(session, terr_classes, specific_year):
     for child in terr_classes:
         #chosen_class = child
@@ -324,12 +340,14 @@ def pyramid_info(session, terr_classes, specific_year):
                                         last_year=False, 
                                         given_year=specific_year)
         
-
+        print(pop_df.iloc[:,-2:])
+        # подаем за посл.год
         if pop_df.shape[0]:
-            p_all, p_y, p_w, p_o = groups_3(pop_df)
-            
+            p_all, p_y, p_w, p_o = groups_3(pop_df.iloc[:,-2:])
+            print(p_all, p_y, p_w, p_o)
             child.pop_all, child.pop_younger,\
                 child.pop_can_work,child.pop_older = p_all, p_y, p_w, p_o
+            print(child.pop_all, child.pop_younger,child.pop_can_work,child.pop_older)
 
         else:
             child.pop_younger,child.pop_can_work,child.pop_older = [0,0,0]
@@ -484,7 +502,9 @@ def get_first_children_data(session, territory_id=34):
     
 def get_children(session, parent_id, parent_class):
     print()
+    
     print('INSIDE GET CHILDREN', parent_class.level) 
+    '''
     if parent_class.level == 2:
         # для ЛО у детей нет площади у 193
         first_children_f = children_pop_dnst_LO(session, parent_class)
@@ -492,15 +512,16 @@ def get_children(session, parent_id, parent_class):
         # для НП (show_level=4) нет инф-ии о численности и площади
         first_children_f = children_pop_dnst(session, parent_class, pop_and_dnst=False)
     else:
-        first_children_f = get_first_children_data(session, parent_class.territory_id)
-        years = first_children_f.filter(regex='\\d{4}').columns
-        first_children_f.rename(columns=dict(zip(years,
-                                                 years.astype(int))
-                                            ),
-                                inplace=True)
-        #    Плотность населения о ГП/СП
-        first_children_f = AreaOnMapFile.calculate_density(first_children_f, 
-                                                      pop_clm='pop_all', dnst_clm='density')
+    '''
+    first_children_f = get_first_children_data(session, parent_class.territory_id)
+    years = first_children_f.filter(regex='\\d{4}').columns
+    first_children_f.rename(columns=dict(zip(years,
+                                             years.astype(int))
+                                        ),
+                            inplace=True)
+    #    Плотность населения о ГП/СП
+    first_children_f = AreaOnMapFile.calculate_density(first_children_f, 
+                                                  pop_clm='pop_all', dnst_clm='density')
 
         
     print(first_children_f)
@@ -567,13 +588,6 @@ def get_detailed_pop(session, territory_id, unpack_after_70=True,
     return df
 
 
-def groups_3(x):
-    pop_all = x.sum().sum()
-    pop_younger = x.iloc[:16].sum().sum()
-    pop_can_work= x.iloc[16:61].sum().sum()
-    pop_older = x.iloc[61:].sum().sum()
-    
-    return [pop_all, pop_younger, pop_can_work, pop_older]
 
 
 def detailed_pop_info(territory_id=34, forecast_until=2030):

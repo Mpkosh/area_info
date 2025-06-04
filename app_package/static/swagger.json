@@ -22,13 +22,13 @@
           "Module 11"
         ],
         "summary": "Territory information (recent year)",
-        "description": "## Get information of the territory and its subtree: geometry, population, density.\n**NOTE:** Given territory should have a territory type 1, 2 or 3.\n\n**Parameters**:\n* **territory_id** (int, Query): Unique identifier of the territory.\n* **show_level** (int, Query): Which territory types to show. **Note:** less or equal to the given territory's type.\n\n**Returns**: \n* **GeoJSONResponse[Feature[FeatureGeometry]]**: \n  * geometry: territory coordinates.\n  * properties: territory id, territory name, population density, population, young population, able-bodied population, old population, death coefficient, birth coefficient, migration coefficient.",
+        "description": "## Get information of the territory and its subtree: geometry, population, density.\n**NOTE:** Given territory should have a territory type 1, 2 or 3.\n\n**Parameters**:\n* **territory_id** (int, Query): Unique identifier of the territory.\n* **down_by** (int, Query): How many levels to go down from the given territory; down_by=0 gives the original territory.\n\n**Returns**: \n* **GeoJSONResponse[Feature[FeatureGeometry]]**: \n  * geometry: territory coordinates.\n  * properties: territory id, territory name, population density, population, young population, able-bodied population, old population, death coefficient, birth coefficient, migration coefficient.",
         "parameters": [
           {
             "$ref": "#/components/parameters/territory_id"
           },
           {
-            "$ref": "#/components/parameters/show_level"
+            "$ref": "#/components/parameters/down_by"
           }
         ],
         "responses": {
