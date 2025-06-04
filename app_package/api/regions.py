@@ -292,15 +292,17 @@ def pop_needs():
 @cross_origin()
 def main_info():
     territory_id = request.args.get('territory_id', type = int, default=34)
-    show_level = request.args.get('show_level', type = int, default=2)
+    show_level = 0#request.args.get('show_level', type = int, default=2)
+    down_by = request.args.get('down_by', type = int, default=0)
     specific_year = request.args.get('year_agesex', type = int, default=2022)
     
-    result = PopInfoForAPI.info(territory_id=territory_id, 
-                                         show_level=show_level, specific_year=specific_year)
+    result = PopInfoForAPI.info(territory_id=territory_id, show_level=show_level, 
+                                down_by=down_by, specific_year=specific_year)
     
     return Response(result.set_geometry('geometry').to_json(), 
                     mimetype='application/json')
     
+
 @bp_api.route('/regions/detailed_info', methods=['GET'])
 @cross_origin()
 def detailed_info():
@@ -391,7 +393,11 @@ def main_migr():
                                 with_mig_dest=with_mig_dest,
                                 change_lo_level=change_lo_level,
                                 from_file=from_file)
-    
+    '''
+    if isinstance(result, Exception):
+        return Response(str(result))
+    '''
+
     if with_mig_dest:
         fin_df, from_to_geom, from_to_lines = result
         fin_df = gpd.GeoDataFrame(fin_df).set_geometry('geometry')

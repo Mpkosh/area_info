@@ -34,19 +34,29 @@ def get_center_point(p_df, clm_area_name='layer', area_name='Гатчински�
     return center_ll
   
     
-def calculate_density(p_df):
+def calculate_density(p_df, pop_clm='', dnst_clm=''):
     # сначала придаем crs (в котором !текущие! значения),
     # потом меняем CRS, чтобы мера длины была метр^2
     gpd_df = p_df.copy().set_crs(epsg=4326).to_crs(epsg=6933)
     # мера длины -- км^2
     gpd_df["S"] = gpd_df['geometry'].area/ 10**6
-    # берем колонки с годами в названии (там лежат данные по населению)
-    year_clms = gpd_df.filter(regex='\\d{4}').columns
-    gpd_df[year_clms]= gpd_df[year_clms].astype(int)
+    print(gpd_df["S"])
+    
+    if not pop_clm:
+        # берем колонки с годами в названии (там лежат данные по населению)
+        pop_clm = gpd_df.filter(regex='\\d{4}').columns
+        
+        
+    gpd_df[pop_clm]= gpd_df[pop_clm].astype(int)
+        
     # считаем плотность населения
-    to_add = gpd_df[year_clms].div(gpd_df["S"], axis=0).round(2)
+    to_add = gpd_df[[pop_clm]].div(gpd_df["S"], axis=0).round(2)
     # меняем названия колонок и добавляем
-    to_add.columns = [str(i)+'_dnst' for i in year_clms]# list(year_clms + '_dnst')
+    if not dnst_clm:
+        to_add.columns = [str(i)+'_dnst' for i in pop_clm]
+    else:
+        to_add.columns = [dnst_clm]
+        
     df = p_df.copy()
     df = pd.concat([df, to_add], axis=1)
     

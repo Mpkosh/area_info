@@ -2,9 +2,9 @@ import requests
 import pandas as pd
 import geopandas as gpd
 import numpy as np
-from shapely.geometry import Point
+from shapely.geometry import Point, shape
 import os
-from app_package.src import PreproDF, DemForecast
+from app_package.src import PreproDF, DemForecast, AreaOnMapFile
 
 
 social_api = os.environ.get('SOCIAL_API')
@@ -100,7 +100,6 @@ def prepro_from_api(df_from_json, given_years=[2019,2020], unpack_after_70=False
         # отсеиваем случайные данные
         if (year != 0):# and (year!=2024):
             df = pd.json_normalize(df_all[df_all['year']==year]['data'].explode())
-            
             # 101 если раскрыты возраста
             if df.shape[0] > 99:
                 
@@ -129,6 +128,7 @@ def prepro_from_api(df_from_json, given_years=[2019,2020], unpack_after_70=False
             df_list.append(df)
 
     df = pd.concat(df_list, axis='columns')
+    
     if unpack_after_70:
         df = PreproDF.add_ages_70_to_100(df)
         df.index = df.index.astype(str)
@@ -156,7 +156,7 @@ def create_point(x):
     return Point(x['coordinates']) 
 
         
-def info(territory_id=34, show_level=3, specific_year=2022):
+def info(territory_id=34, show_level=3, down_by=0, specific_year=2022):
     '''
     Основные характеристики населения:
 
@@ -175,14 +175,15 @@ def info(territory_id=34, show_level=3, specific_year=2022):
     - density: плотность населения.
     
     '''
+    fill_in_4 = True
     session = requests.Session()
     current_territory = Territory(territory_id)
-    main_info(session, current_territory, show_level)
+    main_info(session, current_territory, down_by)
 
-    if show_level < current_territory.territory_type:
-        raise ValueError(f'Show level (given: {show_level}) must be >= territory type (given: {current_territory.territory_type})')
+    if down_by < 0 :
+        raise ValueError(f'Show level must be positive; given down_by={down_by}')
         
-    n_children = show_level - current_territory.territory_type
+    n_children = down_by
     terr_classes = [current_territory]
     terr_ids = current_territory.df['territory_id'].values
     # если нужен уровень детальнее
@@ -197,7 +198,7 @@ def info(territory_id=34, show_level=3, specific_year=2022):
     # all final children in <terr_classes>    
     fin_df = pd.DataFrame([])
     fin_df['territory_id'] = [cl.territory_id for cl in terr_classes]
-    fin_df['oktmo'] = [cl.oktmo for cl in terr_classes]
+    #fin_df['oktmo'] = [cl.oktmo for cl in terr_classes]
     fin_df['name'] = [cl.name for cl in terr_classes]
     fin_df['geometry'] = [cl.geometry for cl in terr_classes]
     
@@ -206,8 +207,8 @@ def info(territory_id=34, show_level=3, specific_year=2022):
     fin_df['density'] = [cl.density for cl in terr_classes]
     
     change = True
-    if show_level==4:
-        # восполняем тем, что есть; на всякий случай сортируем
+    if (current_territory.level==5)&(fill_in_4):
+        # для НП восполняем тем, что есть; на всякий случай сортируем
         # print('Заполнение колонки pop_all с файла towns.geojson')
         try:
             towns = gpd.read_file(file_path+'towns.geojson')
@@ -223,17 +224,18 @@ def info(territory_id=34, show_level=3, specific_year=2022):
             pass
         
     pyramid_info(session, terr_classes, specific_year)
+    
     if change:
         fin_df['pop_all'] = [cl.pop_all for cl in terr_classes]
         
     fin_df['pop_younger'] = [cl.pop_younger for cl in terr_classes]
     fin_df['pop_can_work'] = [cl.pop_can_work for cl in terr_classes]
     fin_df['pop_older'] = [cl.pop_older for cl in terr_classes]
-    
+    '''
     # у ЛО нет октмо в БД
     with pd.option_context("future.no_silent_downcasting", True):
         fin_df['oktmo'] = fin_df['oktmo'].fillna(0)
-    
+    '''
     # ____ Если данных колонок нет, то добавляем и ставим нули
     cols = ['density','pop_all','pop_younger','pop_can_work','pop_older',
             'coeff_death','coeff_birth','coeff_migration']
@@ -242,28 +244,47 @@ def info(territory_id=34, show_level=3, specific_year=2022):
         fin_df[['pop_all','pop_younger','pop_can_work','pop_older']].astype(int)
     fin_df[['coeff_death','coeff_birth','coeff_migration']] = [0.01, 0.871, 0.2]
     cols_order = ['territory_id','name','geometry']+cols
+    
     return fin_df[cols_order].sort_values('territory_id')
     
     
-def main_info(session, current_territory, show_level):
+def main_info(session, current_territory, down_by):
     # ____ Узнаем уровень территории
     try:
         url = terr_api + f'api/v1/territory/{current_territory.territory_id}'
         r_main = session.get(url).json()
+        
+        
         current_territory.territory_type = r_main['territory_type']['id']
+        current_territory.level = r_main['level']
+        print('CURRENT TERR LEVEL', current_territory.level)
         current_territory.name = r_main['name']
-        current_territory.oktmo = r_main['oktmo_code']
+        #current_territory.oktmo = r_main['oktmo_code']
+        
         geom_data = gpd.GeoDataFrame.from_features([r_main])[['geometry']]
+        current_territory.geometry = geom_data.values[0][0]
+        current_territory.centre_point = create_point(r_main['centre_point'])
+        
+        current_territory.parent = Territory(r_main['parent']['id'])
+        current_territory.parent.name = r_main['parent']['name']
+        current_territory.parent.level = current_territory.level-1
+        
     except:
         raise requests.exceptions.RequestException(f'Problem with {url}')
 
-    current_territory.geometry = geom_data.values[0][0]
-    current_territory.parent = Territory(r_main['parent']['id'])
     
-    if show_level == current_territory.territory_type:
-        current_territory.df['oktmo'] = current_territory.oktmo
+    try:
+        current_territory.pop_all = r_main['properties']['Численность населения']
+    except KeyError:
+        current_territory.pop_all = 0
+        pass
+    
+    # если будем работать с этой же терр-й
+    if down_by == 0:
+        #current_territory.df['oktmo'] = current_territory.oktmo
         current_territory.df['geometry'] = geom_data
         current_territory.df['name'] = current_territory.name
+        current_territory.df['centre_point'] = current_territory.centre_point
         
         last_pop_and_dnst(session, current_territory, dnst=True, both=True)
         
@@ -284,46 +305,13 @@ def pyramid_info(session, terr_classes, specific_year):
                                         last_year=False, 
                                         given_year=specific_year)
         
-       
-        print(pop_df)
-        '''
-        # если у ребенка не может быть пирамиды, то постепенно проверяем его родителя
-        if child.territory_type <= 2:
-            ter_id_for_pyramid = child.territory_id
-        else:
-            for i in range(child.territory_type-2):
-                print(chosen_class.territory_id)
-                ter_id_for_pyramid = chosen_class.parent.territory_id
-                chosen_class = child.parent
-        
-        # заглушка для ЛО        
-        if child.territory_type == 1:
-            ter_id_for_pyramid = 34
-            
-        #print(f'pyramid from {chosen_class.name}')        
-        pop_df = get_detailed_pop(session=session, territory_id=ter_id_for_pyramid, 
-                                  unpack_after_70=False, specific_year=specific_year)
-        '''
+
         if pop_df.shape[0]:
             p_all, p_y, p_w, p_o = groups_3(pop_df)
             
             child.pop_all, child.pop_younger,\
                 child.pop_can_work,child.pop_older = p_all, p_y, p_w, p_o
-            '''
-            если брали пирамиду самой территории
-            if ter_id_for_pyramid == child.territory_id:
-                child.pop_all, child.pop_younger,\
-                    child.pop_can_work,child.pop_older = p_all, p_y, p_w, p_o
 
-            # если это пирамида родителя, то раскидываем по вероятностям
-            else:
-                parent_data = np.array([p_all, p_y, p_w, p_o])
-                probs = parent_data/parent_data.max()
-                
-                np.random.seed(27) 
-                child.pop_younger, child.pop_can_work, \
-                    child.pop_older = np.random.multinomial(child.pop_all, probs[1:])
-            '''
         else:
             child.pop_younger,child.pop_can_work,child.pop_older = [0,0,0]
             
@@ -331,11 +319,12 @@ def pyramid_info(session, terr_classes, specific_year):
 def child_to_class(x, parent_class):
     child = Territory(x['territory_id'])
     child.name = x['name']
-    child.oktmo = x['oktmo_code']
+    #child.oktmo = x['oktmo_code']
     child.df['name'] = child.name
     child.geometry = x['geometry']
-    child.territory_type = parent_class.territory_type+1
-    
+    child.level = parent_class.level+1
+    print()
+    print('CHILD TO CLASS', x.index)
     if 'pop_all' in x.index:
         child.pop_all = x['pop_all']
     else:
@@ -365,8 +354,8 @@ def children_pop_dnst(session, parent_class, pop_and_dnst=True):
         res = pd.json_normalize(res['results'], max_level=0)
         fin = res[['territory_id','name','oktmo_code']].copy()
         
-        children_type = parent_class.territory_type+1
-        if children_type <= 3:
+        children_level = parent_class.level+1
+        if children_level <= 4:
             with_geom = gpd.GeoDataFrame.from_features(r.json()['results'])
             fin['geometry'] = with_geom['geometry']
         else:
@@ -380,11 +369,14 @@ def children_pop_dnst(session, parent_class, pop_and_dnst=True):
         pop_clm = 'Численность населения'
         s_clm = 'Площадь территории, кв. км.'
         if (pop_clm in with_geom.columns)&(s_clm in with_geom.columns):
+            
             pop_and_S = with_geom[['Численность населения',
                                    'Площадь территории, кв. км.']]
             fin['pop_all'] = pop_and_S['Численность населения']
             fin['density'] = round(pop_and_S['Численность населения'
                                              ]/pop_and_S['Площадь территории, кв. км.'], 2)
+            
+            
     else:
         fin['pop_all'] = 0
         fin['density'] = 0
@@ -425,19 +417,77 @@ def children_pop_dnst_LO(session, parent_class):
 
     return ff    
     
+
+def get_first_children_data(session, territory_id=34):
+    try:
+        # 34 -- Всеволожский муниципальный район
+        url= terr_api + 'api/v1/territory/indicator_values'
+        params = {'parent_id':territory_id,'indicator_ids':'1','last_only':'true'}
+        r = session.get(url, params=params)
+        first_children = pd.DataFrame(r.json())
+        
+        # df: type, geometry, properties(territory_id,name,...)
+        vills_with_geom = pd.json_normalize(first_children['features'], 
+                                            max_level=0)
+        # df: territory_id, name, indicators
+        vills_with_pop = pd.json_normalize(vills_with_geom['properties'], 
+                                           max_level=0)
+    
+        if vills_with_pop['indicators'].str.len().min() > 0:
+            # раскрываем json с данными о населении
+            # на выходе pd Series [[years, pop_values],...]
+            pop_vals = vills_with_pop['indicators'
+                                      ].apply(lambda x: pd.json_normalize(x
+                                                 )[['date_value','value']].values)
+            # берем года для будущих названий колонок
+            clms = pop_vals[0][:,0]
+            clms = [c[:4] for c in clms] # ['2019', '2020', '2021', '2022', '2023']
+            # собираем все значения в один массив
+            # 19 x 5 x -1
+            pop_vals_one_arr = np.concatenate(pop_vals).reshape(vills_with_geom.shape[0], 
+                                                                len(clms), -1) 
+            
+            vills_with_pop[clms] = pop_vals_one_arr[:,:,1]
+            vills_with_pop.rename(columns={clms[0]:'pop_all'}, inplace=True)
+            
+        vills_with_pop = vills_with_pop.drop('indicators', axis='columns')
+        
+        for_use = vills_with_geom.copy()
+        first_children_f = gpd.GeoDataFrame(vills_with_pop, 
+                                           geometry=[shape(d) for d in for_use.pop("geometry")])
+        first_children_f['geometry'].crs = 'EPSG:4326'
+    except:
+        raise requests.exceptions.RequestException(f'Problem with {r.url}')
+    
+    
+    return first_children_f
+
     
 def get_children(session, parent_id, parent_class):
-
-    if parent_class.territory_type == 1:
+    print()
+    print('INSIDE GET CHILDREN', parent_class.level) 
+    if parent_class.level == 2:
         # для ЛО у детей нет площади у 193
-        fin = children_pop_dnst_LO(session, parent_class)
-    elif parent_class.territory_type == 3:
+        first_children_f = children_pop_dnst_LO(session, parent_class)
+    elif parent_class.level == 4:
         # для НП (show_level=4) нет инф-ии о численности и площади
-        fin = children_pop_dnst(session, parent_class, pop_and_dnst=False)
+        first_children_f = children_pop_dnst(session, parent_class, pop_and_dnst=False)
     else:
-        fin = children_pop_dnst(session, parent_class, pop_and_dnst=True)
-    if fin.shape[0]:       
-        fin.apply(child_to_class, parent_class=parent_class, axis=1)
+        first_children_f = get_first_children_data(session, parent_class.territory_id)
+        years = first_children_f.filter(regex='\\d{4}').columns
+        first_children_f.rename(columns=dict(zip(years,
+                                                 years.astype(int))
+                                            ),
+                                inplace=True)
+        #    Плотность населения о ГП/СП
+        first_children_f = AreaOnMapFile.calculate_density(first_children_f, 
+                                                      pop_clm='pop_all', dnst_clm='density')
+
+        
+    print(first_children_f)
+    # если есть данные по детям, то раскидываем их по классам детей
+    if first_children_f.shape[0]:       
+        first_children_f.apply(child_to_class, parent_class=parent_class, axis=1)
     
         
         
@@ -510,10 +560,20 @@ def groups_3(x):
 def detailed_pop_info(territory_id=34, forecast_until=2030):
     session = requests.Session()
     # ____ Половозрастная структура
-    pop_df = get_detailed_pop(session, territory_id, True, False)
-    if pop_df.shape[0]:
-        pass
     
+    pop_df = get_detailed_pop(session, territory_id, 
+                                unpack_after_70=False, 
+                                last_year=False, 
+                                specific_year=0)
+    
+    
+    # если в БД нет данных по пирамиде
+    if pop_df.shape[0] == 0:
+        pop_df = estimate_child_pyr(session, territory_id, 
+                                    unpack_after_70=False, 
+                                    last_year=False, 
+                                    given_year=0)
+
     # ____ Численность всех групп
     by_work_groups = ['0-16','16-61','61-101']
     soc_groups=['0-6','6-11','11-15','15-18','18-30',
