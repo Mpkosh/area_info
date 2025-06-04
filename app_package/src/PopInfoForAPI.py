@@ -32,16 +32,35 @@ def estimate_child_pyr(session, territory_id, unpack_after_70,
         r_main = session.get(url).json()
         parent_id = r_main['parent']['id']
         level = r_main['level']
-        print('LEVEL:', level)
+        print('LEVEL:', level, parent_id)
         
         # по идее level-3, тк у уровня 3 уже есть пирамида
         # но мы уже сделали один поиск родителя выше
-        to_available = level-4
-        print(to_available)
-        for i in range(to_available):
+        #to_available = level-4
+        #print(to_available)
+        df = get_detailed_pop(session, parent_id, 
+                              unpack_after_70=unpack_after_70, 
+                              last_year=last_year, 
+                              specific_year=given_year)
+        
+        uu = df.columns.get_level_values(0).nunique()
+
+        # если в БД нет данных по пирамиде за минимум 2 года
+        while uu < 2:
             url = terr_api + f'api/v1/territory/{parent_id}'
             r_main = session.get(url).json()
             parent_id = r_main['parent']['id']
+            
+            df = get_detailed_pop(session, parent_id, 
+                                  unpack_after_70=unpack_after_70, 
+                                  last_year=last_year, 
+                                  specific_year=given_year)
+            # если в БД нет данных по пирамиде за минимум 2 года
+            uu = df.columns.get_level_values(0).nunique()
+            print(f'for parent {parent_id} available years = {uu}')
+            
+            
+           
             
     except:
         raise requests.exceptions.RequestException(f'Problem with {url}')
@@ -298,8 +317,8 @@ def pyramid_info(session, terr_classes, specific_year):
                                     last_year=False, 
                                     specific_year=specific_year)
         
-        # если в БД нет данных по пирамиде
-        if pop_df.shape[0] == 0:
+        # если в БД нет данных по пирамиде за 2 года
+        if pop_df.columns.get_level_values(0).nunique() < 2:
             pop_df = estimate_child_pyr(session, child.territory_id, 
                                         unpack_after_70=False, 
                                         last_year=False, 
@@ -348,7 +367,7 @@ def children_pop_dnst(session, parent_class, pop_and_dnst=True):
         territory_id = parent_class.territory_id
         url = terr_api + 'api/v2/territories'
         params = {'parent_id':territory_id,'get_all_levels':'false',
-                  'cities_only':'false','page_size':'1000'}
+                  'cities_only':'false','page_size':'5000'}
         r = session.get(url, params=params)
         res = pd.DataFrame(r.json()) 
         res = pd.json_normalize(res['results'], max_level=0)
@@ -566,14 +585,15 @@ def detailed_pop_info(territory_id=34, forecast_until=2030):
                                 last_year=False, 
                                 specific_year=0)
     
-    
-    # если в БД нет данных по пирамиде
-    if pop_df.shape[0] == 0:
+    # если в БД нет данных по пирамиде за минимум 2 года
+    if pop_df.columns.get_level_values(0).nunique() < 2:
+        print('getting parent')
+    #if pop_df.shape[0] == 0:
         pop_df = estimate_child_pyr(session, territory_id, 
                                     unpack_after_70=False, 
                                     last_year=False, 
                                     given_year=0)
-
+    print(pop_df)
     # ____ Численность всех групп
     by_work_groups = ['0-16','16-61','61-101']
     soc_groups=['0-6','6-11','11-15','15-18','18-30',
@@ -601,16 +621,13 @@ def detailed_pop_info(territory_id=34, forecast_until=2030):
     groups_df = pd.concat(r, axis=1).T
     
     # ____ Динамика и прогноз
-    folders={'popdir':file_path+'population_data/',
-             'file_name':'Ленинградская область.xlsx'}
-    last_pop_year = pop_df.columns.levels[0][-1]
     # прогноз до 2030 года включительно
-    horizon = forecast_until - last_pop_year
-    forecast = DemForecast.MakeForecast(pop_df, last_pop_year, 
-                                        horizon, folders)
-    # отрезаем от прогноза первый год (== поданному на вход последнему году)
-    dynamic_pop = pd.concat([pop_df, forecast.iloc[:, 2:]], axis=1) #pd.concat([pop_df,forecast.loc[:, (2024, slice(None))]], axis=1)
-    dynamic_pop_df = pd.DataFrame([dynamic_pop.T.groupby(level=[0]).sum().sum(1)])
+    
+    given_year = 0
+    print('FORECAST UNTIL', forecast_until)
+    pop_df = DemForecast.get_predictions(pop_df, forecast_until, given_year)
+    print(pop_df)
+    dynamic_pop_df = pd.DataFrame([pop_df.T.groupby(level=[0]).sum().sum(1)])
 
     # ____ Половозрастная структура соц.групп (то же, что и пункт 1?)
     soc_pyramid_df = pd.concat(dict(zip(soc_groups, soc_pyramid)), names=['Соц_группа']) 

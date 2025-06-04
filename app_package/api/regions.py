@@ -77,8 +77,8 @@ def pyramid_data():
                                         last_year=last_year, 
                                         specific_year=given_year)
     
-    # если в БД нет данных по пирамиде
-    if df.shape[0] == 0:
+    # если в БД нет данных по пирамиде за 2 года
+    if df.columns.get_level_values(0).nunique() < 2:
         df = PopInfoForAPI.estimate_child_pyr(session, territory_id, 
                                               unpack_after_70, last_year, given_year)
         
@@ -115,8 +115,8 @@ def migration_data():
                                         unpack_after_70=unpack_after_70, 
                                         last_year=last_year, 
                                         specific_year=given_year)
-    # если в БД нет данных по пирамиде
-    if df.shape[0] == 0:
+    # если в БД нет данных по пирамиде за 2 года
+    if df.columns.get_level_values(0).nunique() < 2:
         df = PopInfoForAPI.estimate_child_pyr(session, territory_id, 
                                               unpack_after_70, last_year, given_year)
         

@@ -682,7 +682,8 @@ def get_children(session, parent_id, parent_class):
     #print(f'children for {parent_id}')
     try:
         url= terr_api + 'api/v2/territories'
-        params = {'parent_id':parent_id,'get_all_levels':'false','cities_only':'false','page_size':1000}
+        params = {'parent_id':parent_id,'get_all_levels':'false',
+                  'cities_only':'false','page_size':1000}
         r_u = session.get(url, params=params)
         r = r_u.json()
         if r['results']:
