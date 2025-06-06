@@ -40,17 +40,17 @@ def calculate_density(p_df, pop_clm='', dnst_clm=''):
     gpd_df = p_df.copy().set_crs(epsg=4326).to_crs(epsg=6933)
     # мера длины -- км^2
     gpd_df["S"] = gpd_df['geometry'].area/ 10**6
-    print(gpd_df["S"])
+    print(gpd_df)
     
     if not pop_clm:
         # берем колонки с годами в названии (там лежат данные по населению)
-        pop_clm = gpd_df.filter(regex='\\d{4}').columns
-        
-        
+        pop_clm = gpd_df.filter(regex='\\d{4}').columns.values
+
+    print(gpd_df[pop_clm])    
     gpd_df[pop_clm]= gpd_df[pop_clm].astype(int)
         
     # считаем плотность населения
-    to_add = gpd_df[[pop_clm]].div(gpd_df["S"], axis=0).round(2)
+    to_add = gpd_df[pop_clm].div(gpd_df["S"], axis=0).round(2)
     # меняем названия колонок и добавляем
     if not dnst_clm:
         to_add.columns = [str(i)+'_dnst' for i in pop_clm]

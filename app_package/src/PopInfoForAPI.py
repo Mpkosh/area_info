@@ -521,7 +521,7 @@ def get_children(session, parent_id, parent_class):
                             inplace=True)
     #    Плотность населения о ГП/СП
     first_children_f = AreaOnMapFile.calculate_density(first_children_f, 
-                                                  pop_clm='pop_all', dnst_clm='density')
+                                                  pop_clm=['pop_all'], dnst_clm='density')
 
         
     print(first_children_f)

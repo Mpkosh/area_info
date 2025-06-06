@@ -172,11 +172,12 @@ def get_density_data(session, territory_id=34,
 
         years = first_children_f.filter(regex='\\d{4}').columns
         first_children_f = first_children_f[['territory_id','name',*years,'geometry']]
-
+        
+    print('first_children_f\n', first_children_f)
     #    Плотность населения о ГП/СП
     d_with_dnst = AreaOnMapFile.calculate_density(first_children_f)
     df = d_with_dnst.copy()
-    
+    print('df', df)
     # ставим интервалы и цвета для легенды
     labels_ordered = ['0 — 10','10 — 100','100 — 500','500 — 1 000',
                   '1 000 — 5 000','5 000 — ...']
@@ -203,6 +204,10 @@ def get_density_data(session, territory_id=34,
         current_terrs = df.iloc[1:].territory_id.values
     else:
         current_terrs = df.territory_id.values    
+    vills_in_area = 0
+    
+    print('current_terrs', current_terrs)
+    print('all_children', all_children)
     # если нет делений меньше (например, работаем с городом, не с районом)
     if set(current_terrs) == set(all_children.territory_id.values):
         fin_vills_full = df.merge(all_children[['territory_id','parent.id',
@@ -210,15 +215,28 @@ def get_density_data(session, territory_id=34,
         fin_vills_full['centre_point'] = fin_vills_full['centre_point'
                                                        ].apply(lambda x: create_point(x))
         print('!!!')
+    
     else:
         # вручную режем по границе КАЖДОГО ГП/СП/
         np_clipped = clip_all_children(all_children, p_id=territory_id)
-
+        print('all_children', all_children[['territory_id','name']])
         vills_in_area = np_clipped.reset_index().set_crs(epsg=4326
                                                         )[['parent.id','centre_point']]
+        print(vills_in_area.shape)
+        print(df.shape)
+        #if vills_in_area.shape[0] > 0 :
         fin_vills_full = df.merge(vills_in_area, left_on='territory_id', 
                                   right_on='parent.id')
+        '''    
+        else:
+            fin_vills_full = df.merge(vills_in_area, left_on='territory_id', right_on='parent.id',
+                                          how='left')
+        '''
 
+    print()        
+    print('df', df)
+    print('vills_in_area',vills_in_area)
+    print('fin', fin_vills_full)
     fin_vills_full.drop(columns=['parent.id'], inplace=True)
 
     if include_parent:
@@ -236,7 +254,7 @@ def get_density_data(session, territory_id=34,
         
         fin_vills_full = pd.concat([df.iloc[:1], fin_vills_full]
                                   ).set_crs(epsg=4326) 
-    
+    print(fin_vills_full)
     return df, fin_vills_full, all_children
 
     
