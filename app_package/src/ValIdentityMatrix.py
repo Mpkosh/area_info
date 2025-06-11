@@ -176,6 +176,28 @@ def color_intensity(row):
 	else:
 		return -1 * (row['reg_means'] - row['distr_vals']) / (row['reg_means'] - row['reg_mins'])
 
+#Функция для составления описания значения ячейки
+def cell_describe(cell_coeffs, cell_ftrs_vals, reg_mean_cell_f_vals):
+	#Подсчитаем влияние факторов на значение клеточки
+	#смотрим, насколько показатели в данном locality превышают средние по региону/не достают до средних по региону
+	cell_ftrs_vals -= reg_mean_cell_f_vals
+	#умножаем эти превышения/недогоны на коэффициенты
+	cell_ftrs_vals *= pd.Series(cell_coeffs)
+	#отсортируем по "передвиганию" значения
+	cell_ftrs_vals = cell_ftrs_vals.sort_values(ascending = False)
+
+	#Посмотрим на количество факторов
+	features_n = len(cell_coeffs)
+	#Если меньше 7, выводим всё
+	if features_n < 7:
+		return {'features': cell_ftrs_vals}
+
+	#Что двигает вперёд (где полученное значение - наибольшее)
+	tops = cell_ftrs_vals.nlargest(n = 3)
+	#Что двигает назад (где полученное значение наименьшее)
+	bttms = cell_ftrs_vals.nsmallest(n = 3)
+	return {'tops': tops, 'bottoms': bttms}
+
 #Final function
 def muni_tab(territory_id: int, feature_changed = False, changes_dict = "") -> json:
 	"""
@@ -231,13 +253,25 @@ def muni_tab(territory_id: int, feature_changed = False, changes_dict = "") -> j
 		reg_maxs = reg_tab.max()
 		reg_mins = reg_tab.min()
 
+		#вычисления для получения описания
+		descrs = copy.deepcopy(grid_coeffs)
+		reg_df_means = reg_df.mean()
+		distr_df = reg_df.loc[oktmo]
+		for cell_ident in grid_coeffs.columns:
+			for cell_val in grid_coeffs[cell_ident].index:
+				if pd.isnull(descrs[cell_ident][cell_val]):
+					descrs[cell_ident][cell_val] = None
+					continue
+				descrs[cell_ident][cell_val] = cell_describe(descrs[cell_ident][cell_val], distr_df[descrs[cell_ident][cell_val].keys()], reg_df_means[descrs[cell_ident][cell_val].keys()])
+		descrs = tab_to_ser(descrs)
+
 		#Переведём вычисленные по клеточкам значения в массивы из самого значения для данного района, среднего значения по региону и интенсивности цвета
 		#(положительная интенсивность - для зелёного цвета; отрицательная - для красного)
 		distr_ser = reg_tab.loc[oktmo]
-		distr_ser = pd.DataFrame({'distr_vals': distr_ser, 'reg_means': reg_means, 'reg_maxs': reg_maxs, 'reg_mins': reg_mins})
+		distr_ser = pd.DataFrame({'distr_vals': distr_ser, 'reg_means': reg_means, 'reg_maxs': reg_maxs, 'reg_mins': reg_mins, 'description': descrs})
 		distr_ser['color'] = distr_ser.apply(color_intensity, axis = 1)
 
-		distr_ser['finals'] = distr_ser.apply(lambda x: [x['distr_vals'], x['reg_means'], x['color']], axis = 1)
+		distr_ser['finals'] = distr_ser.apply(lambda x: [x['distr_vals'], x['reg_means'], x['color'], x['description']], axis = 1)
 
 		#получим обратно значения клеточек для нашего мун. образования
 		tab = ser_to_tab(distr_ser['finals'], grid_coeffs)
@@ -272,13 +306,25 @@ def muni_tab(territory_id: int, feature_changed = False, changes_dict = "") -> j
 		reg_maxs = reg_tab.max()
 		reg_mins = reg_tab.min()
 
+		#вычисления для получения описания
+		descrs = copy.deepcopy(grid_coeffs)
+		reg_df_means = reg_df.mean()
+		distr_df = reg_df.loc[territory_id]
+		for cell_ident in grid_coeffs.columns:
+			for cell_val in grid_coeffs[cell_ident].index:
+				if pd.isnull(descrs[cell_ident][cell_val]):
+					descrs[cell_ident][cell_val] = None
+					continue
+				descrs[cell_ident][cell_val] = cell_describe(descrs[cell_ident][cell_val], distr_df[descrs[cell_ident][cell_val].keys()], reg_df_means[descrs[cell_ident][cell_val].keys()])
+		descrs = tab_to_ser(descrs)
+
 		#Переведём вычисленные по клеточкам значения в массивы из самого значения для данного района, среднего значения по региону и интенсивности цвета
 		#(положительная интенсивность - для зелёного цвета; отрицательная - для красного)
 		distr_ser = reg_tab.loc[territory_id]
-		distr_ser = pd.DataFrame({'distr_vals': distr_ser, 'reg_means': reg_means, 'reg_maxs': reg_maxs, 'reg_mins': reg_mins})
+		distr_ser = pd.DataFrame({'distr_vals': distr_ser, 'reg_means': reg_means, 'reg_maxs': reg_maxs, 'reg_mins': reg_mins, 'description': descrs})
 		distr_ser['color'] = distr_ser.apply(color_intensity, axis = 1)
 
-		distr_ser['finals'] = distr_ser.apply(lambda x: [x['distr_vals'], x['reg_means'], x['color']], axis = 1)
+		distr_ser['finals'] = distr_ser.apply(lambda x: [x['distr_vals'], x['reg_means'], x['color'], x['description']], axis = 1)
 
 		#получим обратно значения клеточек для нашего мун. образования
 		tab = ser_to_tab(distr_ser['finals'], grid_coeffs)
