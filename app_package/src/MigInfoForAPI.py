@@ -42,8 +42,8 @@ def info_for_graph(territory_id, show_level=0, md_year=2022):
     current_territory = Territory(territory_id)
     main_info(session, current_territory, show_level)
     
-    if show_level < current_territory.territory_type:
-        raise ValueError(f'Show level must be >= territory type; given show_level={show_level} and territory_type={current_territory.territory_type}')
+    #if show_level < current_territory.territory_type:
+    #    raise ValueError(f'Show level must be >= territory type; given show_level={show_level} and territory_type={current_territory.territory_type}')
 
     n_children = show_level - current_territory.territory_type
     terr_classes = [current_territory]
@@ -289,15 +289,7 @@ def info(territory_id, show_level=0, down_by=0, detailed=False,
                 current_territory = Territory(current_territory.parent.territory_id)
                 main_info(session, current_territory, down_by)
                 current_territory.children.append(current_territory_np)
-            '''
-            # для уровня областей быстрее из файла (surpise-surprise)
-            if from_file & (show_level <= 1) & (current_territory.territory_type==1):
-                from_to_geom, from_to_lines = mig_dest_prepared(show_level=show_level, 
-                                                                fin_df=fin_df, siblings=[], 
-                                                                change_lo_level=change_lo_level, 
-                                                                md_year=md_year,
-                                                                from_file=from_file)
-            '''
+
             print('N children: ', n_children)
             print('Fin_df: ', fin_df.shape, fin_df.head(2))
             print()
@@ -328,13 +320,6 @@ def info(territory_id, show_level=0, down_by=0, detailed=False,
                 siblings['name'] = [cl.name for cl in terr_classes]
                 siblings['geometry'] = [cl.geometry for cl in terr_classes]
                 siblings['centroid'] = [cl.centre_point for cl in terr_classes]
-                
-                '''
-                if n_children!=0:
-                    print('!!!! added 2 types of siblings')
-                    siblings = pd.concat([fin_df[['territory_id','oktmo','name','geometry']],
-                                         siblings])
-                '''
 
                 print('terr_classes parent', terr_classes[0].name)
 
@@ -573,15 +558,79 @@ def mig_dest_prepared_regions(down_by, work_with,
     return from_to_geom, from_to_lines
     
     
+def get_indicators(session, oktmos, last=False):
+    indic_names = ['popsize','avgemployers', 'avgsalary', 'shoparea',
+                   'foodseats', 'retailturnover', 'foodservturnover', 'consnewareas',
+                   'consnewapt', 'livarea', 'sportsvenue', 'servicesnum', 'roadslen',
+                   'livestock', 'harvest', 'agrprod', 'invest', 'budincome', 'funds',
+                   'museums', 'parks', 'theatres', 'hospitals', 'cliniccap',
+                   'beforeschool', 'schoolnum', 'naturesecure', 'factoriescap']
+
+    indic_ns = [47,48,49,3,
+               4,51,52,15,
+               54,53,5,55,8,
+               11, 12, 10, 44, 16, 40,
+                21, 25, 22, 28, 30, 
+               17, 18, 41, 50]
+    df_ins = pd.DataFrame()
+
+    # собираем с soc_demo API индикаторы по территориям
+    for oktmo_code in oktmos:
+        print(oktmo_code)
+
+        for i, indic_n in enumerate(indic_ns):
+            url =f'{social_api}indicators/{indic_n}/aggregated?oktmo={oktmo_code}'
+            r = session.get(url)
+            # если без ошибок И ответ непустой
+            # (если статус 500, то нельзя .json())
+            if (r.status_code == 200):
+                if len(r.json()):
+                    df_indic = pd.json_normalize(r.json())[['name','year','value']]
+                    if last:
+                        df_indic['year']  = df_indic['year'].astype(int) 
+                        df_indic = df_indic.nlargest(1,'year')
+                    df_indic['oktmo'] = oktmo_code
+                else:
+                    df_indic = pd.DataFrame([indic_names[i],2022,0,oktmo_code]).T
+                    df_indic.columns = ['name','year','value','oktmo']
+            else:
+                df_indic = pd.DataFrame([indic_names[i],2022,0,oktmo_code]).T
+                df_indic.columns = ['name','year','value','oktmo']
+
+            df_ins = pd.concat([df_ins, df_indic])
+    return df_ins
+    
+    
 def main_factors(session, fin_df):
-    sdf = pd.read_csv(file_path+'superdataset_iqr.csv')
-    sdf['oktmo'] = sdf['oktmo'].astype(str)
-    max_year = np.min([sdf.year.max(), 2022])
-    sdf = sdf[(sdf.year==max_year)&(sdf.oktmo.isin(fin_df['oktmo']))]
-    sdf = sdf.sort_values(by='year').drop(['name','year', 'saldo'],
-                   axis='columns').reset_index(drop=True)
-    fin_df = fin_df.merge(sdf, on='oktmo', how='left')
+    df_ins = get_indicators(session, fin_df.oktmo.values, last=True)
+    indic_names = ['popsize','avgemployers', 'avgsalary', 'shoparea',
+                   'foodseats', 'retailturnover', 'foodservturnover', 'consnewareas',
+                   'consnewapt', 'livarea', 'sportsvenue', 'servicesnum', 'roadslen',
+                   'livestock', 'harvest', 'agrprod', 'invest', 'budincome', 'funds',
+                   'museums', 'parks', 'theatres', 'hospitals', 'cliniccap',
+                   'beforeschool', 'schoolnum', 'naturesecure', 'factoriescap']
+    grouped = df_ins.groupby(['oktmo','name']).max().groupby('oktmo')
+    all_fins = pd.DataFrame([])
+
+    # приводим к нужному формату
+    for oktmo_code in fin_df.oktmo.values:
+        one = grouped.get_group(oktmo_code).reset_index(
+                                            )[['name','value']].set_index('name').T
+
+        one = one.rename_axis(None, axis=1).loc[:, indic_names]
+        one['oktmo'] = oktmo_code
+        all_fins = pd.concat([all_fins, one])
+
+    
+    if fin_df.shape[0] > 0:
+        fin_df = fin_df.merge(all_fins.reset_index(drop=True), 
+                              on='oktmo', how='left')
+    else:
+        fin_df = fin_df.merge(all_fins.reset_index(drop=True), 
+                              on='oktmo', how='right')
+        
     fin_df = rus_clms_factors(fin_df)
+    
     return fin_df 
 
 
@@ -777,25 +826,32 @@ def detailed_migration(session, current_territory, fin_df):
     return fin_df
     
     
-def detailed_factors(session, current_territory, fin_df):
-    sdf = pd.read_csv(file_path+'superdataset_iqr.csv')
-    sdf['oktmo'] = sdf['oktmo'].astype(str)
-
-    oktmo = current_territory.oktmo
-   
-    sdf = sdf[(sdf.oktmo.isin([oktmo]))&(sdf.year>=2019)]
+def detailed_factors(session, current_territory, fin_df):    
+    df_ins = get_indicators(session, [current_territory.oktmo])
     
-    sdf = sdf.sort_values(by='year').drop(['name', 'saldo'],
-                       axis='columns').reset_index(drop=True)
-    print(sdf)
-    print(fin_df.shape)
+    indic_names = ['popsize','avgemployers', 'avgsalary', 'shoparea',
+                   'foodseats', 'retailturnover', 'foodservturnover', 'consnewareas',
+                   'consnewapt', 'livarea', 'sportsvenue', 'servicesnum', 'roadslen',
+                   'livestock', 'harvest', 'agrprod', 'invest', 'budincome', 'funds',
+                   'museums', 'parks', 'theatres', 'hospitals', 'cliniccap',
+                   'beforeschool', 'schoolnum', 'naturesecure', 'factoriescap']
+    # приводим к нужному виду
+    year_ins = pd.pivot_table(df_ins[df_ins.year >= 2019], columns='name',
+                  values='value', index='year', fill_value=0).reset_index()
+    year_ins = year_ins.rename_axis(None, axis=1)
+    # восполняем пропущенные индикаторы
+    missing = list(set(indic_names) - set(year_ins.columns))
+    for miss_clm in missing:
+        year_ins[miss_clm] = 0
+    
+    sdf = year_ins.loc[:, ['year',*indic_names]]
     if fin_df.shape[0] > 0:
         fin_df = fin_df.merge(sdf, how='left', on='year')
     else:
         fin_df = fin_df.merge(sdf, how='right', on='year')
+        
     fin_df = rus_clms_factors(fin_df)
     fin_df = fin_df.rename(columns = {'year':'Год'})
-    print(fin_df)
     return fin_df
 
 
