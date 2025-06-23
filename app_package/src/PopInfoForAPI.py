@@ -120,6 +120,11 @@ def prepro_from_api(df_from_json, given_years=[2019,2020], unpack_after_70=False
         # отсеиваем случайные данные
         if (year != 0):# and (year!=2024):
             df = pd.json_normalize(df_all[df_all['year']==year]['data'].explode())
+            # убираем дубли
+            df = df.drop_duplicates(['age_start','age_end']).reset_index(drop=True)
+            # иногда НаН вместо нулей
+            df.loc[:,['male','female']] = df.loc[:,['male','female']].fillna(0)
+
             # 101 если раскрыты возраста
             if df.shape[0] > 99:
                 

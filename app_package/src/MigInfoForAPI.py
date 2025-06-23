@@ -592,11 +592,10 @@ def get_indicators(session, oktmos, last=False):
                     df_indic['oktmo'] = oktmo_code
                 else:
                     df_indic = pd.DataFrame([indic_names[i],2022,0,oktmo_code]).T
-                    df_indic.columns = ['name','year','value','oktmo']
             else:
                 df_indic = pd.DataFrame([indic_names[i],2022,0,oktmo_code]).T
-                df_indic.columns = ['name','year','value','oktmo']
-
+                
+            df_indic.columns = ['name','year','value','oktmo']
             df_ins = pd.concat([df_ins, df_indic])
     return df_ins
     
