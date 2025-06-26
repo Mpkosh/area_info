@@ -114,17 +114,41 @@ def to_interval(x):
     
 def prepro_from_api(df_from_json, given_years=[2019,2020], unpack_after_70=False):
     df_all = df_from_json[df_from_json.year.isin(given_years)]
+
+    # если есть дубликаты по году
+    dupes = df_all.year.duplicated(keep=False)
     
+    if dupes.sum() > 0:
+        to_drop = []
+        # проходим по каждому сету дубликатов (по году)
+    
+        for year in df_all[dupes].year.unique():
+            one_set = df_all[dupes & (df_all.year==year)]
+            # если есть Росстат, то выбираем его, а остальные удаляем
+            if 'Росстат' in one_set.source.values:
+                idx_to_drop = df_all[(dupes & 
+                                            (df_all.year==year) & 
+                                            (df_all.source != 'Росстат'))].index[0]
+                to_drop.append(idx_to_drop)
+            # если нет, то удаляем первый индекс 
+            else:
+                idx_to_drop = df_all[dupes & 
+                                          (df_all.year==year)].index[0]
+                to_drop.append(idx_to_drop)
+    
+        df_all = df_all.drop(index=to_drop).reset_index(drop=True)
+        
+    given_years = df_all.year.sort_values().values
     df_list = []
     for year in given_years:
         # отсеиваем случайные данные
         if (year != 0):# and (year!=2024):
             df = pd.json_normalize(df_all[df_all['year']==year]['data'].explode())
-            # убираем дубли
+            # убираем дубли в возрастных группах
             df = df.drop_duplicates(['age_start','age_end']).reset_index(drop=True)
             # иногда НаН вместо нулей
             df.loc[:,['male','female']] = df.loc[:,['male','female']].fillna(0)
-
+            print(df.shape)
             # 101 если раскрыты возраста
             if df.shape[0] > 99:
                 
@@ -133,14 +157,7 @@ def prepro_from_api(df_from_json, given_years=[2019,2020], unpack_after_70=False
                         (df['age_start']==100))]
             else:
                 unpack_after_70 = True
-                # всякий случай задаем возраста: 
-                # 1) все с интервалом 1 год; 2) 100+; 3) с интервалом 4 года для старших
-                '''
-                df = df[(df['age_start']==df['age_end'])|(
-                        df['age_start']==100)|(
-                        (df['age_end']-df['age_start']==4)&(
-                            df['age_end'].isin([74,79,84,89,94,99])))]
-                '''            
+  
   
             df['группа'] = df.iloc[:,:2].apply(to_interval, 1)
     
