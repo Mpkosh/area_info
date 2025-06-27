@@ -8,4 +8,4 @@ while true; do
     echo Deploy command failed, retrying in 5 secs...
     sleep 5
 done
-exec gunicorn -b :5000 --access-logfile - --error-logfile - app_plots:app
+exec gunicorn -b :5000 --timeout 100 --access-logfile - --error-logfile - app_plots:app
