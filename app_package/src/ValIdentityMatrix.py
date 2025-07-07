@@ -296,7 +296,7 @@ def muni_tab(territory_id: int, feature_changed = False, changes_dict = "") -> j
         tab = ser_to_tab(distr_ser['finals'], grid_coeffs)
         
         #теперь выдаём это, как json, и всё
-        print(tab.to_json())
+        return tab.to_json()
     
     elif level == 4:
         ##ДЛЯ ГП/СП
@@ -347,7 +347,7 @@ def muni_tab(territory_id: int, feature_changed = False, changes_dict = "") -> j
         tab = ser_to_tab(distr_ser['finals'], grid_coeffs)
         
         #теперь выдаём это, как json, и всё 
-        print(tab.to_json())
+        return tab.to_json()
     else:
         ##ДЛЯ ДРУГИХ УРОВНЕЙ
         raise ValueError(f'Localities of this level (given: {level}) are not supported in this request')
