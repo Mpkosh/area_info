@@ -38,7 +38,8 @@ def get_parent_data(session, territory_id=34):
     ter_info['name'] = name
     ter_info['geometry'] = geom_data
     ter_info = gpd.GeoDataFrame(ter_info)#[['territory_id','name',*years,'geometry']])
-    
+
+    ter_info = ter_info.loc[:,~ter_info.columns.duplicated()]
     return ter_info
 
 
@@ -122,8 +123,11 @@ def get_first_children_data(session, territory_id=34, from_api=True):
         first_children_f = gpd.GeoDataFrame(vills_with_pop, 
                                            geometry=[shape(d) for d in for_use.pop("geometry")])
         first_children_f['geometry'].crs = 'EPSG:4326'
+        
+        first_children_f = first_children_f.loc[:,~first_children_f.columns.duplicated()]
     except:
         raise requests.exceptions.RequestException(f'Problem with {r.url}')
+    
     
     return first_children_f
 
@@ -167,7 +171,6 @@ def get_density_data(session, territory_id=34,
                                             years.astype(int))
                                        ),
                                 inplace=True)
-
         first_children_f = pd.concat([parent_info, first_children_f]).fillna(0)
 
         years = first_children_f.filter(regex='\\d{4}').columns
