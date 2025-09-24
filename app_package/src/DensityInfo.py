@@ -15,6 +15,30 @@ def create_point(x):
     return Point(x['coordinates'])
 
 
+def remove_dup_years(ter_info):
+    dupes = ter_info.date_value.duplicated(keep=False)
+    if dupes.sum() > 0:
+        to_drop = []
+        # проходим по каждому сету дубликатов (по году)
+    
+        for year in ter_info[dupes].date_value.unique():
+            one_set = ter_info[dupes & (ter_info.date_value==year)]
+            # если есть Росстат, то выбираем его, а остальные удаляем
+            if 'Росстат' in one_set.information_source.values:
+                idx_to_drop = ter_info[(dupes & 
+                                            (ter_info.date_value==year) & 
+                                            (ter_info.information_source != 'Росстат'))].index[0]
+                to_drop.append(idx_to_drop)
+            # если нет, то удаляем первый индекс 
+            else:
+                idx_to_drop = ter_info[dupes & 
+                                          (ter_info.date_value==year)].index[0]
+                to_drop.append(idx_to_drop)
+    
+        ter_info = ter_info.drop(index=to_drop).reset_index(drop=True)
+    return ter_info.drop(columns=['information_source'])    
+
+
 def get_parent_data(session, territory_id=34):
     # получаем название и геометрию
     url = terr_api + f'api/v1/territory/{territory_id}'
@@ -27,8 +51,10 @@ def get_parent_data(session, territory_id=34):
     url= terr_api + f'api/v1/territory/{territory_id}/indicator_values'
     params = {'indicator_ids':'1','last_only':'false'}
     r = session.get(url, params=params)
-    ter_info = pd.DataFrame(r.json())[['date_value', 'value']]
+    ter_info = pd.DataFrame(r.json())[['date_value', 'value','information_source']]
     ter_info['date_value'] = ter_info['date_value'].str[:4].astype(int)
+    ter_info = remove_dup_years(ter_info)
+    
     #years = ter_info['date_value'].values
     ter_info = ter_info.set_index('date_value').T.reset_index(drop=True)
     ter_info.columns.name = None
@@ -39,7 +65,7 @@ def get_parent_data(session, territory_id=34):
     ter_info['geometry'] = geom_data
     ter_info = gpd.GeoDataFrame(ter_info)#[['territory_id','name',*years,'geometry']])
 
-    ter_info = ter_info.loc[:,~ter_info.columns.duplicated()]
+    #ter_info = ter_info.loc[:,~ter_info.columns.duplicated()]
     return ter_info
 
 
