@@ -11,6 +11,29 @@ social_api = os.environ.get('SOCIAL_API')
 terr_api = os.environ.get('TERRITORY_API')
 file_path = 'app_package/src/'
 
+def remove_dup_years(ter_info):
+    dupes = ter_info.date_value.duplicated(keep=False)
+    if dupes.sum() > 0:
+        to_drop = []
+        # проходим по каждому сету дубликатов (по году)
+    
+        for year in ter_info[dupes].date_value.unique():
+            one_set = ter_info[dupes & (ter_info.date_value==year)]
+            # если есть Росстат, то выбираем его, а остальные удаляем
+            if 'Росстат' in one_set.information_source.values:
+                idx_to_drop = ter_info[(dupes & 
+                                            (ter_info.date_value==year) & 
+                                            (ter_info.information_source != 'Росстат'))].index[0]
+                to_drop.append(idx_to_drop)
+            # если нет, то удаляем первый индекс 
+            else:
+                idx_to_drop = ter_info[dupes & 
+                                          (ter_info.date_value==year)].index[0]
+                to_drop.append(idx_to_drop)
+    
+        ter_info = ter_info.drop(index=to_drop).reset_index(drop=True)
+    return ter_info.drop(columns=['information_source'])    
+
 
 def estimate_child_pyr(session, territory_id, unpack_after_70,
                        last_year, given_year):
@@ -19,9 +42,11 @@ def estimate_child_pyr(session, territory_id, unpack_after_70,
         url = terr_api + f'api/v1/territory/{territory_id}/indicator_values'
         params = {'indicator_ids':'1','last_only':'false'}
         r = session.get(url, params=params)
-        child_pops = pd.DataFrame(r.json())[['date_value','value']]
         
+        child_pops = pd.DataFrame(r.json())[['date_value', 'value','information_source']]
         child_pops['date_value'] = child_pops['date_value'].str[:4].astype(int)
+        child_pops = remove_dup_years(child_pops)
+        
         child_pops = child_pops.set_index('date_value')
     except:
         raise requests.exceptions.RequestException(f'Problem with {url}')

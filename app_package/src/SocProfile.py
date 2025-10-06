@@ -47,7 +47,7 @@ def get_profiles(territory_id, forecast_until=0, given_year=2023):
     last_year = True
     
     # ____ Половозрастная структура территории
-    pop_df = PopInfoForAPI.get_detailed_pop(session, territory_id, True, False)
+    #pop_df = PopInfoForAPI.get_detailed_pop(session, territory_id, True, False)
     pop_df = PopInfoForAPI.get_detailed_pop(session, territory_id, 
                                         unpack_after_70=unpack_after_70, 
                                         last_year=last_year, 
