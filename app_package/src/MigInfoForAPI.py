@@ -382,7 +382,7 @@ def info(territory_id, show_level=0, down_by=0, detailed=False,
                 
             
         fin_df = main_migration(session, current_territory, fin_df)    
-        fin_df = main_factors(session, fin_df)
+        fin_df = main_factors(session, current_territory, fin_df)
         fin_df = gpd.GeoDataFrame(fin_df, geometry='geometry')
         # меняем, чтобы удалось преобразовать в json
         fin_df['centre_point'] = fin_df['centre_point'].astype('str')
@@ -600,8 +600,49 @@ def get_indicators(session, oktmos, last=False):
     return df_ins
     
     
-def main_factors(session, fin_df):
-    df_ins = get_indicators(session, fin_df.oktmo.values, last=True)
+def main_factors(session, current_territory, fin_df):
+    
+    oktmos = fin_df.oktmo.values
+    df_ins = get_indicators(session, oktmos, last=True)
+    # для уровня 2 собираем инф-ию по детям
+    if (current_territory.level==2)&(df_ins.value.sum()==0):
+
+        terr_classes = [current_territory]
+        terr_ids = [current_territory.territory_id]
+
+        for i in range(1):
+            for ter_id, ter_class in zip(terr_ids, terr_classes):
+                get_children(session, ter_id, ter_class)
+                
+            # новый набор для итерации    
+            terr_classes = [child for one_class in terr_classes for child in one_class.children]
+            # новые id тер-рий
+            terr_ids = [one_class.territory_id for one_class in terr_classes]
+
+        oktmos = [one_class.oktmo for one_class in terr_classes]
+        oktmos = list(set(oktmos))
+        
+        df_ins = get_indicators(session, oktmos, last=True)
+        
+        # для отдельных факторов считаем среднее; для остальных -- сумму
+        mean_f = ['avgemployers', 'avgsalary','consnewapt','livarea','harvest','cliniccap']
+        df_ins.name = pd.Categorical(df_ins.name, 
+                                categories=df_ins.name.unique(), 
+                                ordered=True)
+        summary = pd.DataFrame()
+        summary['mean'] = df_ins[df_ins.year>=2019][['name','value']].groupby('name').mean().astype(float)['value']
+        summary['sum'] = df_ins[df_ins.year>=2019][['name','value']].groupby('name').sum().astype(float)['value']
+        summary.reset_index(drop=False, inplace=True)
+        
+        mean_s = summary[summary.name.isin(mean_f)][['name','mean']].rename(columns={'mean':'value'})
+        sum_s = summary[~summary.name.isin(mean_f)][['name','sum']].rename(columns={'sum':'value'})
+        df_ins = pd.concat([mean_s,sum_s])
+        df_ins.name = df_ins.name.astype(object)
+        df_ins.fillna(0, inplace=True)
+        df_ins['oktmo'] = current_territory.oktmo
+        oktmos = [current_territory.oktmo]
+    
+    
     indic_names = ['popsize','avgemployers', 'avgsalary', 'shoparea',
                    'foodseats', 'retailturnover', 'foodservturnover', 'consnewareas',
                    'consnewapt', 'livarea', 'sportsvenue', 'servicesnum', 'roadslen',
@@ -610,9 +651,10 @@ def main_factors(session, fin_df):
                    'beforeschool', 'schoolnum', 'naturesecure', 'factoriescap']
     grouped = df_ins.groupby(['oktmo','name']).max().groupby('oktmo')
     all_fins = pd.DataFrame([])
-
+    
+   
     # приводим к нужному формату
-    for oktmo_code in fin_df.oktmo.values:
+    for oktmo_code in oktmos:
         one = grouped.get_group(oktmo_code).reset_index(
                                             )[['name','value']].set_index('name').T
 
@@ -660,7 +702,7 @@ def main_migration(session, current_territory, fin_df):
             
         oktmo = current_territory.oktmo
         oktmos = [one_class.oktmo for one_class in terr_classes]
-        
+        oktmos = list(set(oktmos))
         
         needed_part = df[df.year==df.year.max()]
         needed_part = needed_part[needed_part.oktmo.isin(oktmos)]
@@ -849,6 +891,7 @@ def detailed_migration(session, current_territory, fin_df):
             terr_ids = [one_class.territory_id for one_class in terr_classes]
         
         oktmo = [one_class.oktmo for one_class in terr_classes]
+        oktmo = list(set(oktmo))
 
     needed_part = df[(df['oktmo'].isin(oktmo))&(df.vozr=='Всего')]
     area_part = needed_part.sort_values(by=['year','migr']
@@ -873,8 +916,41 @@ def detailed_migration(session, current_territory, fin_df):
     return fin_df
     
     
-def detailed_factors(session, current_territory, fin_df):    
+def detailed_factors(session, current_territory, fin_df): 
     df_ins = get_indicators(session, [current_territory.oktmo])
+    
+    if (current_territory.level==2)&(df_ins.value.sum()==0):
+
+        terr_classes = [current_territory]
+        terr_ids = [current_territory.territory_id]
+
+        for i in range(1):
+            for ter_id, ter_class in zip(terr_ids, terr_classes):
+                get_children(session, ter_id, ter_class)
+                
+            # новый набор для итерации    
+            terr_classes = [child for one_class in terr_classes for child in one_class.children]
+            # новые id тер-рий
+            terr_ids = [one_class.territory_id for one_class in terr_classes]
+
+        oktmos = [one_class.oktmo for one_class in terr_classes]
+        oktmos = list(set(oktmos))
+        
+        df_ins = get_indicators(session, oktmos)
+        
+        # для отдельных факторов считаем среднее; для остальных -- сумму
+        mean_f = ['avgemployers', 'avgsalary','consnewapt','livarea','harvest','cliniccap']
+    
+        summary = pd.DataFrame()
+        summary['mean'] = df_ins[df_ins.year>=2019][['name','year','value']].groupby(['year','name']).mean().astype(float).round(1)#['value']
+        summary['sum'] = df_ins[df_ins.year>=2019][['name','year','value']].groupby(['year','name']).sum().astype(float).round(1)#['value']
+        summary.reset_index(drop=False, inplace=True)
+        
+        mean_s = summary[summary.name.isin(mean_f)][['name','year','mean']].rename(columns={'mean':'value'})
+        sum_s = summary[~summary.name.isin(mean_f)][['name','year','sum']].rename(columns={'sum':'value'})
+        df_ins = pd.concat([mean_s,sum_s])
+        df_ins['oktmo'] = current_territory.oktmo
+        oktmos = [current_territory.oktmo]
     
     indic_names = ['popsize','avgemployers', 'avgsalary', 'shoparea',
                    'foodseats', 'retailturnover', 'foodservturnover', 'consnewareas',
