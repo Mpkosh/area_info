@@ -381,7 +381,7 @@ def info(territory_id, show_level=0, down_by=0, detailed=False,
                                                            terr_classes=terr_classes)
                 
             
-        fin_df = main_migration(session, fin_df)    
+        fin_df = main_migration(session, current_territory, fin_df)    
         fin_df = main_factors(session, fin_df)
         fin_df = gpd.GeoDataFrame(fin_df, geometry='geometry')
         # меняем, чтобы удалось преобразовать в json
@@ -633,7 +633,7 @@ def main_factors(session, fin_df):
     return fin_df 
 
 
-def main_migration(session, fin_df):
+def main_migration(session, current_territory, fin_df):
     df = pd.read_csv(file_path+'in_out_migration_diff_types.csv', index_col=0)[
         ['vozr','migr','municipality','oktmo','year','in_value','out_value']]
     # отбираем только общую миграцию
@@ -643,28 +643,59 @@ def main_migration(session, fin_df):
     df['oktmo'] = df['oktmo'].astype(str)
      
     oktmos = fin_df['oktmo'].values
-    needed_part = df[df.year==df.year.max()]
-    needed_part = needed_part[needed_part.oktmo.isin(oktmos)]
-    print('needed', oktmos)
-    print(needed_part)
-    print(df[df.oktmo.isin(oktmos)])
+
+    # для ЛО нет явного значения в данных; суммируем по дочерним терр-м
+    if (current_territory.level==2)&(oktmos.shape[0]==1):
+        terr_classes = [current_territory]
+        terr_ids = [current_territory.territory_id]
+
+        for i in range(1):
+            for ter_id, ter_class in zip(terr_ids, terr_classes):
+                get_children(session, ter_id, ter_class)
+                
+            # новый набор для итерации    
+            terr_classes = [child for one_class in terr_classes for child in one_class.children]
+            # новые id тер-рий
+            terr_ids = [one_class.territory_id for one_class in terr_classes]
+            
+        oktmo = current_territory.oktmo
+        oktmos = [one_class.oktmo for one_class in terr_classes]
+        
+        
+        needed_part = df[df.year==df.year.max()]
+        needed_part = needed_part[needed_part.oktmo.isin(oktmos)]
+        
+        area_part = needed_part.sort_values(by='vozr').drop_duplicates(['vozr','municipality']
+                                                           ).groupby('vozr').sum()
+        all_in, all_out, old_in, old_out, \
+        work_in, work_out = area_part[['in_value','out_value']].values.flatten()
+        young_in, young_out = all_in-old_in-work_in, all_out-old_out-work_out
+
+        fin_df.loc[fin_df.oktmo==oktmo, ['younger_in','work_in','old_in',
+          'younger_out','work_out','old_out']] = [young_in,work_in,old_in,
+                                                  young_out,work_out,old_out]
+                                                  
     
-    # эффективнее сразу для всех, но пока непонятно как
-    for oktmo in oktmos:
-        check = needed_part[needed_part.oktmo==oktmo]
-        # для выбранной тер-рии
-        if check.shape[0]:
-            # Никольское  -- по 2 строки
-            area_part = check.sort_values(by='vozr'
-                                         ).drop_duplicates(['vozr','municipality'])
+    else:
+        needed_part = df[df.year==df.year.max()]
+        needed_part = needed_part[needed_part.oktmo.isin(oktmos)]
 
-            all_in, all_out, old_in, old_out, \
-            work_in, work_out = area_part[['in_value','out_value']].values.flatten()
-            young_in, young_out = all_in-old_in-work_in, all_out-old_out-work_out
+        # эффективнее сразу для всех, но пока непонятно как
+        for oktmo in oktmos:
+            check = needed_part[needed_part.oktmo==oktmo]
+            # для выбранной тер-рии
+            if check.shape[0]:
+                # Никольское  -- по 2 строки
+                area_part = check.sort_values(by='vozr'
+                                             ).drop_duplicates(['vozr','municipality'])
 
-            fin_df.loc[fin_df.oktmo==oktmo, ['younger_in','work_in','old_in',
-              'younger_out','work_out','old_out']] = [young_in,work_in,old_in,
-                                                      young_out,work_out,old_out]
+                all_in, all_out, old_in, old_out, \
+                work_in, work_out = area_part[['in_value','out_value']].values.flatten()
+                young_in, young_out = all_in-old_in-work_in, all_out-old_out-work_out
+    
+                fin_df.loc[fin_df.oktmo==oktmo, ['younger_in','work_in','old_in',
+                  'younger_out','work_out','old_out']] = [young_in,work_in,old_in,
+                                                          young_out,work_out,old_out]
             
     fin_df = rus_clms_mig(fin_df, detailed=False)    
     return fin_df 
@@ -709,7 +740,8 @@ def main_info(session, current_territory, down_by):
             current_territory.df['centre_point'] = current_territory.centre_point
             
     except:
-        raise requests.exceptions.RequestException(f'Problem with {r.url}')
+        url = terr_api + f'api/v1/territory/{current_territory.territory_id}'
+        raise requests.exceptions.RequestException(f'Problem with {url}')
     
     
 def child_to_class(x, parent_class):
@@ -800,9 +832,25 @@ def detailed_migration(session, current_territory, fin_df):
     clms = np.array(clms).flatten()
     fin_df[clms] = 0
     
-    oktmo = current_territory.oktmo
-    needed_part = df[(df.oktmo.isin([oktmo]))&(df.vozr=='Всего')]
+    oktmo = [current_territory.oktmo]
     
+    # для ЛО нет явного значения в данных; суммируем по дочерним терр-м
+    if current_territory.level==2:
+        terr_classes = [current_territory]
+        terr_ids = [current_territory.territory_id]
+
+        for i in range(1):
+            for ter_id, ter_class in zip(terr_ids, terr_classes):
+                get_children(session, ter_id, ter_class)
+                
+            # новый набор для итерации    
+            terr_classes = [child for one_class in terr_classes for child in one_class.children]
+            # новые id тер-рий
+            terr_ids = [one_class.territory_id for one_class in terr_classes]
+        
+        oktmo = [one_class.oktmo for one_class in terr_classes]
+
+    needed_part = df[(df['oktmo'].isin(oktmo))&(df.vozr=='Всего')]
     area_part = needed_part.sort_values(by=['year','migr']
                                          ).drop_duplicates(['year','migr','municipality'])
     # чтобы при группировке отсутствующие категории все равно указывались
@@ -942,7 +990,7 @@ def mig_dest_multipolygons(result, fin_df_with_centre,
     
     result.loc[:,'from_centroid'] = gpd.GeoSeries.from_wkt(result['from_centroid'].astype(str))
     result.loc[:,'to_centroid'] = gpd.GeoSeries.from_wkt(result['to_centroid'].astype(str))
-
+    
     result.loc[:,'line'] = result.apply(lambda x: LineString([x['from_centroid'], 
                                          x['to_centroid']]), axis=1)
     
@@ -1003,6 +1051,7 @@ def mig_dest_prepared(down_by, fin_df, current_territory,
 
         #oktmo = fin_df.oktmo.values
         oktmo = df_with_geom.oktmo.values
+        #print('oktmos:',df_with_geom[df_with_geom.territory_id.isin(fin_df.territory_id.unique())].oktmo)
         needed_part = dd[(dd.oktmo.isin(oktmo))][['oktmo','name','year',
                                                   'total_inflow','total_outflow',
                                                   'interreg_inflow','interreg_outflow']]
@@ -1024,6 +1073,7 @@ def mig_dest_prepared(down_by, fin_df, current_territory,
     result = result[(result.from_territory_id.isin([*uniq_ids])
                     )|(result.to_territory_id.isin([*uniq_ids]))
                    ]
+
     print('\nRESULT:\n',result.shape,'\n',result.from_territory_id.unique())
     
     '''
